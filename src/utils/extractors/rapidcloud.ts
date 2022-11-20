@@ -1,15 +1,16 @@
 import axios from 'axios';
 import { load } from 'cheerio';
-import WebSocket from 'ws';
+import CryptoJS from 'crypto-js';
 
 import { VideoExtractor, IVideo, ISubtitle, Intro } from '../../models';
-import { USER_AGENT } from '..';
 
 class RapidCloud extends VideoExtractor {
   protected override serverName = 'RapidCloud';
   protected override sources: IVideo[] = [];
 
+  private readonly fallbackKey = 'c1d17096f2ca11b7';
   private readonly host = 'https://rapid-cloud.co';
+  private readonly consumetApi = 'https://api.consumet.org';
   private readonly enimeApi = 'https://api.enime.moe';
 
   override extract = async (videoUrl: URL): Promise<{ sources: IVideo[] } & { subtitles: ISubtitle[] }> => {
@@ -27,15 +28,34 @@ class RapidCloud extends VideoExtractor {
 
       let res = null;
 
-      const { data: sId } = await axios.get(`${this.enimeApi}/tool/rapid-cloud/server-id`);
+      // let { data: sId } = await axios({
+      //   method: 'GET',
+      //   url: `${this.consumetApi}/utils/rapid-cloud`,
+      //   validateStatus: status => true,
+      // });
 
-      res = await axios.get(`${this.host}/ajax/embed-6/getSources?id=${id}&sId=${sId}`, options);
+      // if (!sId) {
+      //   sId = await axios({
+      //     method: 'GET',
+      //     url: `${this.enimeApi}/tool/rapid-cloud/server-id`,
+      //     validateStatus: status => true,
+      //   });
+      // }
 
-      const {
-        data: { sources, tracks, intro },
+      res = await axios.get(`${this.host}/ajax/embed-6/getSources?id=${id}`, options);
+
+      let {
+        data: { sources, tracks, intro, encrypted },
       } = res;
 
-      this.sources = sources.map((s: any) => ({
+      let decryptKey = await (
+        await axios.get('https://raw.githubusercontent.com/consumet/rapidclown/main/key.txt')
+      ).data;
+      if (!decryptKey) decryptKey = this.fallbackKey;
+
+      if (encrypted)
+        sources = JSON.parse(CryptoJS.AES.decrypt(sources, decryptKey).toString(CryptoJS.enc.Utf8));
+      this.sources = sources?.map((s: any) => ({
         url: s.file,
         isM3U8: s.file.includes('.m3u8'),
       }));
@@ -96,7 +116,7 @@ class RapidCloud extends VideoExtractor {
 
       return result;
     } catch (err) {
-      throw new Error((err as Error).message);
+      throw err;
     }
   };
 

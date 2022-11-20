@@ -12,7 +12,7 @@ const mangadex = new MANGA.MangaDex();
 
 ### search
 > Note: This method is a subclass of the [`BaseParser`](https://github.com/consumet/extensions/blob/master/src/models/base-parser.ts) class. meaning it is available across most categories.
-> 
+>
 <h4>Parameters</h4>
 
 | Parameter        | Type     | Description                                                                  |
@@ -24,7 +24,7 @@ const mangadex = new MANGA.MangaDex();
 ```ts
 mangadex.search("Tomodachi Game").then(data => {
   console.log(data);
-}
+})
 ```
 returns a promise which resolves into an array of manga. (*[`Promise<ISearch<IMangaResult[]>>`](https://github.com/consumet/extensions/blob/master/src/models/types.ts#L97-L106)*)\
 output:
@@ -35,7 +35,7 @@ output:
     {
       id: 'b35f67b6-bfb9-4cbd-86f0-621f37e6cb41', // manga id
       title: 'Tomodachi Game',
-      altTtitles: [
+      altTitles: [
          { en: 'Friends Games' },
          { ja: 'トモダチゲーム' },
          {...},
@@ -65,7 +65,7 @@ output:
 ```ts
 managdex.fetchMangaInfo("b35f67b6-bfb9-4cbd-86f0-621f37e6cb41").then(data => {
   console.log(data);
-}
+})
 ```
 returns a promise which resolves into an manga info object (including the chapters). (*[`Promise<IMangaInfo>`](https://github.com/consumet/extensions/blob/master/src/models/types.ts#L115-L120)*)\
 output:
@@ -73,7 +73,7 @@ output:
 {
   id: 'b35f67b6-bfb9-4cbd-86f0-621f37e6cb41',
   title: 'Tomodachi Game',
-  altTtitles: [
+  altTitles: [
     { en: 'Friends Games' },
     { ja: 'トモダチゲーム' },
     {...},
@@ -116,7 +116,7 @@ output:
 ```ts
 mangadex.fetchChapterPages("a79255c8-21b5-4a8c-a586-48469fa87020").then(data => {
   console.log(data);
-}
+})
 ```
 returns an array of pages. (*[`Promise<IMangaChapterPage[]>`](https://github.com/consumet/extensions/blob/master/src/models/types.ts#L122-L126)*)\
 output:

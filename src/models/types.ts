@@ -25,6 +25,7 @@ export interface IAnimeResult {
   cover?: string;
   status?: MediaStatus;
   rating?: number;
+  type?: MediaFormat;
   releaseDate?: string;
   [x: string]: unknown; // other fields
 }
@@ -52,14 +53,38 @@ export interface FuzzyDate {
   day?: number;
 }
 
+export enum MediaFormat {
+  TV = 'TV',
+  TV_SHORT = 'TV_SHORT',
+  MOVIE = 'MOVIE',
+  SPECIAL = 'SPECIAL',
+  OVA = 'OVA',
+  ONA = 'ONA',
+  MUSIC = 'MUSIC',
+  MANGA = 'MANGA',
+  NOVEL = 'NOVEL',
+  ONE_SHOT = 'ONE_SHOT',
+}
+
 export interface IAnimeInfo extends IAnimeResult {
   malId?: number | string;
   genres?: string[];
   description?: string;
-  type?: string;
   status?: MediaStatus;
   totalEpisodes?: number;
+  /**
+   * @deprecated use `hasSub` or `hasDub` instead
+   */
   subOrDub?: SubOrSub;
+  hasSub?: boolean;
+  hasDub?: boolean;
+  synonyms?: string[];
+  /**
+   * two letter representation of coutnry: e.g JP for japan
+   */
+  countryOfOrigin?: string;
+  isAdult?: boolean;
+  isLicensed?: boolean;
   /**
    * `FALL`, `WINTER`, `SPRING`, `SUMMER`
    */
@@ -72,6 +97,7 @@ export interface IAnimeInfo extends IAnimeResult {
   startDate?: FuzzyDate;
   endDate?: FuzzyDate;
   recommendations?: IAnimeResult[];
+  relations?: IAnimeResult[];
 }
 
 export interface IAnimeEpisode {
@@ -105,6 +131,10 @@ export interface IVideo {
    */
   isM3U8?: boolean;
   /**
+   * set this to `true` if the video is dash (mpd)
+   */
+  isDASH?: boolean;
+  /**
    * size of the video in **bytes**
    */
   size?: number;
@@ -112,6 +142,7 @@ export interface IVideo {
 }
 
 export enum StreamingServers {
+  AsianLoad = 'asianload',
   GogoCDN = 'gogocdn',
   StreamSB = 'streamsb',
   MixDrop = 'mixdrop',
@@ -156,13 +187,17 @@ export interface IMangaChapter {
   title: string;
   volume?: number;
   pages?: number;
+  releaseDate?: string;
   [x: string]: unknown; // other fields
 }
 
 export interface IMangaInfo extends IMangaResult {
+  malId?: number | string;
   authors?: string[];
   genres?: string[];
   links?: string[];
+  characters?: any[];
+  recommendations?: IMangaResult[];
   chapters?: IMangaChapter[];
 }
 
@@ -239,15 +274,11 @@ export interface ComicRes {
   hasNextPage: boolean;
 }
 
-export interface ZLibrary extends Book {
-  bookRating: string;
-  bookQuality: string;
-  language: string;
-  size: string;
-  pages: string;
-}
-
 export interface ISubtitle {
+  /**
+   * The id of the subtitle. **not** required
+   */
+  id?: string;
   /**
    * The **url** that should take you to the subtitle **directly**.
    */
@@ -385,4 +416,16 @@ export enum Topics {
   PEOPLE = 'people',
   MERCH = 'merch',
   EVENTS = 'events',
+}
+
+export interface ProxyConfig {
+  /**
+   * The proxy URL
+   * @example https://proxy.com
+   **/
+  url: string;
+  /**
+   * X-API-Key header value (if any)
+   **/
+  key?: string;
 }

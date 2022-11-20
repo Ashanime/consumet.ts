@@ -1,18 +1,11 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = __importDefault(require("axios"));
+const crypto_js_1 = __importDefault(require("crypto-js"));
+const ws_1 = __importDefault(require("ws"));
 const models_1 = require("../../models");
 const __1 = require("..");
 class VidCloud extends models_1.VideoExtractor {
@@ -20,9 +13,9 @@ class VidCloud extends models_1.VideoExtractor {
         super(...arguments);
         this.serverName = 'VidCloud';
         this.sources = [];
-        this.host = 'https://mzzcloud.life';
+        this.host = 'https://dokicloud.one';
         this.host2 = 'https://rabbitstream.net';
-        this.extract = (videoUrl, isAlternative = false) => __awaiter(this, void 0, void 0, function* () {
+        this.extract = async (videoUrl, isAlternative = false) => {
             var _a;
             const result = {
                 sources: [],
@@ -37,9 +30,14 @@ class VidCloud extends models_1.VideoExtractor {
                         'User-Agent': __1.USER_AGENT,
                     },
                 };
-                let res = null;
-                res = yield axios_1.default.get(`${isAlternative ? this.host2 : this.host}/ajax/embed-4/getSources?id=${id}`, options);
-                const { data: { sources, tracks }, } = res;
+                let res = undefined;
+                let sources = undefined;
+                res = await axios_1.default.get(`${isAlternative ? this.host2 : this.host}/ajax/embed-4/getSources?id=${id}`, options);
+                //const res = await this.wss(id!);
+                if (!(0, __1.isJson)(res.data.sources)) {
+                    const { data: key } = await axios_1.default.get('https://raw.githubusercontent.com/consumet/rapidclown/rabbitstream/key.txt');
+                    sources = JSON.parse(crypto_js_1.default.AES.decrypt(res.data.sources, key).toString(crypto_js_1.default.enc.Utf8));
+                }
                 this.sources = sources.map((s) => ({
                     url: s.file,
                     isM3U8: s.file.includes('.m3u8'),
@@ -48,7 +46,7 @@ class VidCloud extends models_1.VideoExtractor {
                 result.sources = [];
                 this.sources = [];
                 for (const source of sources) {
-                    const { data } = yield axios_1.default.get(source.file, options);
+                    const { data } = await axios_1.default.get(source.file, options);
                     const urls = data.split('\n').filter((line) => line.includes('.m3u8'));
                     const qualities = data.split('\n').filter((line) => line.includes('RESOLUTION='));
                     const TdArray = qualities.map((s, i) => {
@@ -70,16 +68,39 @@ class VidCloud extends models_1.VideoExtractor {
                     isM3U8: sources[0].file.includes('.m3u8'),
                     quality: 'auto',
                 });
-                result.subtitles = tracks.map((s) => ({
+                result.subtitles = res.data.tracks.map((s) => ({
                     url: s.file,
                     lang: s.label ? s.label : 'Default (maybe)',
                 }));
                 return result;
             }
             catch (err) {
-                throw new Error(err.message);
+                throw err;
             }
-        });
+        };
+        this.wss = async (iframeId) => {
+            const ws = new ws_1.default('wss://wsx.dokicloud.one/socket.io/?EIO=4&transport=websocket');
+            ws.onopen = () => {
+                ws.send('40');
+            };
+            return await new Promise(resolve => {
+                let sid = '';
+                let res = { sid: '', sources: [], tracks: [] };
+                ws.onmessage = e => {
+                    const data = e.data.toString();
+                    if (data.startsWith('40')) {
+                        res.sid = JSON.parse(data.slice(2)).sid;
+                        ws.send(`42["getSources",{"id":"${iframeId}"}]`);
+                    }
+                    else if (data.startsWith('42["getSources"')) {
+                        const ress = JSON.parse(data.slice(2))[1];
+                        res.sources = ress.sources;
+                        res.tracks = ress.tracks;
+                        resolve(res);
+                    }
+                };
+            });
+        };
     }
 }
 exports.default = VidCloud;

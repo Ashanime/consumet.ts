@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -29,11 +20,11 @@ class AniMixPlay extends models_1.AnimeParser {
          *
          * @param query search query
          */
-        this.search = (query) => __awaiter(this, void 0, void 0, function* () {
+        this.search = async (query) => {
             const formData = new form_data_1.default();
             formData.append('qfast', query);
             formData.append('root', 'animixplay.to');
-            const { data: { result }, } = yield axios_1.default.post(this.searchUrl, formData);
+            const { data: { result }, } = await axios_1.default.post(this.searchUrl, formData);
             const $ = (0, cheerio_1.load)(result);
             const results = [];
             $('a').each((i, el) => {
@@ -46,13 +37,13 @@ class AniMixPlay extends models_1.AnimeParser {
                 });
             });
             return { results };
-        });
+        };
         /**
          *
          * @param id anime id
          * @param dub whether to get dub version of the anime
          */
-        this.fetchAnimeInfo = (id, dub = false) => __awaiter(this, void 0, void 0, function* () {
+        this.fetchAnimeInfo = async (id, dub = false) => {
             var _a;
             if (!id.startsWith('http'))
                 id = `${this.baseUrl}${dub ? `${id}-dub` : id}`;
@@ -61,7 +52,7 @@ class AniMixPlay extends models_1.AnimeParser {
                 title: '',
             };
             try {
-                const { data } = yield axios_1.default.get(id, {
+                const { data } = await axios_1.default.get(id, {
                     headers: {
                         'User-Agent': utils_1.USER_AGENT,
                     },
@@ -79,8 +70,10 @@ class AniMixPlay extends models_1.AnimeParser {
                     for (const key in episodes) {
                         animeInfo.episodes.push({
                             id: (_a = episodes[key].toString()) === null || _a === void 0 ? void 0 : _a.match(/(?<=id=).*(?=&title)/g)[0],
+                            animixplayId: `${animeInfo.id}/ep${parseInt(key) + 1}`,
                             number: parseInt(key) + 1,
-                            url: `https:${episodes[key]}`,
+                            url: `${this.baseUrl}${animeInfo.id}/ep${parseInt(key) + 1}`,
+                            gogoUrl: `https:${episodes[key]}`,
                         });
                     }
                 }
@@ -89,18 +82,22 @@ class AniMixPlay extends models_1.AnimeParser {
             catch (e) {
                 throw new Error(e.message);
             }
-        });
+        };
         /**
          *
          * @param episodeId episode id
          */
-        this.fetchEpisodeSources = (episodeId) => __awaiter(this, void 0, void 0, function* () {
+        this.fetchEpisodeSources = async (episodeId) => {
             if (!episodeId.startsWith('http'))
-                episodeId = `https://goload.io/streaming.php?id=${episodeId}`;
+                episodeId = 'https://gogohd.net/streaming.php?id=' + episodeId;
+            // const { data } = await axios.get(this.baseUrl + episodeId);
+            // console.log(data);
+            // const iframe = data.match(/(?<=<iframe src=").*(?=")/g)![0];
+            // console.log(iframe);
             return {
-                sources: yield new utils_1.GogoCDN().extract(new URL(episodeId)),
+                sources: await new utils_1.GogoCDN().extract(new URL(episodeId)),
             };
-        });
+        };
         /**
          * @deprecated Use fetchEpisodeSources instead
          */
@@ -109,5 +106,11 @@ class AniMixPlay extends models_1.AnimeParser {
         };
     }
 }
+// (async () => {
+//   const animixplay = new AniMixPlay();
+//   const animeInfo = await animixplay.fetchAnimeInfo('/v1/one-piece');
+//   const sources = await animixplay.fetchEpisodeSources(animeInfo.episodes![0].id);
+//   console.log(sources);
+// })();
 exports.default = AniMixPlay;
 //# sourceMappingURL=animixplay.js.map

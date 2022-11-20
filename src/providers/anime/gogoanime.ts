@@ -12,17 +12,19 @@ import {
   SubOrSub,
   IAnimeResult,
   ISource,
+  MediaFormat,
 } from '../../models';
 import { GogoCDN, StreamSB, USER_AGENT } from '../../utils';
 
 class Gogoanime extends AnimeParser {
   override readonly name = 'Gogoanime';
-  protected override baseUrl = 'https://gogoanime.gg';
+  protected override baseUrl = 'https://www.gogoanime.dk';
   protected override logo =
     'https://i0.wp.com/cloudfuji.com/wp-content/uploads/2021/12/gogoanime.png?fit=300%2C400&ssl=1';
   protected override classPath = 'ANIME.Gogoanime';
 
   private readonly ajaxUrl = 'https://ajax.gogo-load.com/ajax';
+
 
   /**
    *
@@ -102,7 +104,10 @@ class Gogoanime extends AnimeParser {
 
       animeInfo.subOrDub = animeInfo.title.toLowerCase().includes('dub') ? SubOrSub.DUB : SubOrSub.SUB;
 
-      animeInfo.type = $('div.anime_info_body_bg > p:nth-child(4) > a').text().trim();
+      animeInfo.type = $('div.anime_info_body_bg > p:nth-child(4) > a')
+        .text()
+        .trim()
+        .toUpperCase() as MediaFormat;
 
       animeInfo.status = MediaStatus.UNKNOWN;
 
@@ -315,5 +320,11 @@ class Gogoanime extends AnimeParser {
     }
   };
 }
+
+// (async () => {
+//   const anime = new Gogoanime();
+//   const animeInfo = await anime.fetchEpisodeSources('juuni-taisen-dub-episode-6', StreamingServers.GogoCDN);
+//   console.log(animeInfo);
+// })();
 
 export default Gogoanime;

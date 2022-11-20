@@ -8,6 +8,9 @@ import {
   StreamTape,
   VizCloud,
   Filemoon,
+  Vrv,
+  BilibiliExtractor,
+  AsianLoad,
 } from './extractors';
 import {
   USER_AGENT,
@@ -16,20 +19,25 @@ import {
   formatTitle,
   genElement,
   capitalizeFirstLetter,
+  range,
+  getDays,
+  days,
+  isJson,
+  convertDuration,
+} from './utils';
+import {
   anilistSearchQuery,
   anilistMediaDetailQuery,
   kitsuSearchQuery,
-  range,
-  anilistTrendingAnimeQuery,
-  anilistPopularAnimeQuery,
+  anilistTrendingQuery,
+  anilistPopularQuery,
   anilistAiringScheduleQuery,
   anilistGenresQuery,
   anilistAdvancedQuery,
   anilistSiteStatisticsQuery,
   anilistCharacterQuery,
-} from './utils';
+} from './queries';
 import { parsePostInfo } from './getComics';
-import { countDivs } from './zLibrary';
 
 export {
   USER_AGENT,
@@ -41,7 +49,6 @@ export {
   parsePostInfo,
   genElement,
   capitalizeFirstLetter,
-  countDivs,
   VidCloud,
   MixDrop,
   Kwik,
@@ -52,12 +59,19 @@ export {
   RapidCloud,
   StreamTape,
   VizCloud,
-  anilistTrendingAnimeQuery,
-  anilistPopularAnimeQuery,
+  anilistTrendingQuery,
+  anilistPopularQuery,
   anilistAiringScheduleQuery,
   anilistGenresQuery,
   anilistAdvancedQuery,
   anilistSiteStatisticsQuery,
   Filemoon,
   anilistCharacterQuery,
+  getDays,
+  days,
+  Vrv,
+  isJson,
+  convertDuration,
+  BilibiliExtractor,
+  AsianLoad,
 };

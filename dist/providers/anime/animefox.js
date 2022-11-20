@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -27,18 +18,36 @@ class AnimeFox extends models_1.AnimeParser {
          * @param query Search query
          * @param page Page number (optional)
          */
-        this.search = (query, page = 1) => __awaiter(this, void 0, void 0, function* () {
+        this.search = async (query, page = 1) => {
             try {
-                const { data } = yield axios_1.default.get(`${this.baseUrl}/search?keyword=${decodeURIComponent(query)}&page=${page}`);
+                const { data } = await axios_1.default.get(`${this.baseUrl}/search?keyword=${decodeURIComponent(query)}&page=${page}`);
                 const $ = (0, cheerio_1.load)(data);
                 const hasNextPage = $('.pagination > nav > ul > li').last().hasClass('disabled') ? false : true;
                 const searchResults = [];
                 $('div.film_list-wrap > div').each((i, el) => {
                     var _a;
+                    let type = undefined;
+                    switch ($(el).find('div.fd-infor > span').text()) {
+                        case 'TV Series':
+                            type = models_1.MediaFormat.TV;
+                            break;
+                        case 'Movie':
+                            type = models_1.MediaFormat.MOVIE;
+                            break;
+                        case 'Special':
+                            type = models_1.MediaFormat.SPECIAL;
+                            break;
+                        case 'OVA':
+                            type = models_1.MediaFormat.OVA;
+                            break;
+                        default:
+                            type = models_1.MediaFormat.TV;
+                            break;
+                    }
                     searchResults.push({
                         id: (_a = $(el).find('div.film-poster > a').attr('href')) === null || _a === void 0 ? void 0 : _a.replace('/anime/', ''),
                         title: $(el).find('div.film-poster > img').attr('alt'),
-                        type: $(el).find('div.fd-infor > span').text(),
+                        type: type,
                         image: $(el).find('div.fd-infor > span:nth-child(1)').text(),
                         url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
                         episode: parseInt($(el).find('div.tick-eps').text().replace('EP', '').trim()),
@@ -53,22 +62,38 @@ class AnimeFox extends models_1.AnimeParser {
             catch (err) {
                 throw new Error(err);
             }
-        });
+        };
         /**
          * @param id Anime id
          */
-        this.fetchAnimeInfo = (id) => __awaiter(this, void 0, void 0, function* () {
+        this.fetchAnimeInfo = async (id) => {
             const info = {
                 id: id,
                 title: '',
             };
             try {
-                const { data } = yield axios_1.default.get(`${this.baseUrl}/anime/${id}`);
+                const { data } = await axios_1.default.get(`${this.baseUrl}/anime/${id}`);
                 const $ = (0, cheerio_1.load)(data);
                 info.title = $('h2.film-name').attr('data-jname');
                 info.image = $('img.film-poster-img').attr('data-src');
                 info.description = $('div.anisc-info > div:nth-child(1) > div').text().trim();
-                info.type = $('div.anisc-info > div:nth-child(8) > a').text().trim();
+                switch ($('div.anisc-info > div:nth-child(8) > a').text().trim()) {
+                    case 'TV Series':
+                        info.type = models_1.MediaFormat.TV;
+                        break;
+                    case 'Movie':
+                        info.type = models_1.MediaFormat.MOVIE;
+                        break;
+                    case 'Special':
+                        info.type = models_1.MediaFormat.SPECIAL;
+                        break;
+                    case 'OVA':
+                        info.type = models_1.MediaFormat.OVA;
+                        break;
+                    default:
+                        info.type = models_1.MediaFormat.TV;
+                        break;
+                }
                 info.releaseYear = $('div.anisc-info > div:nth-child(7) > a').text().trim();
                 switch ($('div.anisc-info > div:nth-child(9) > a').text().trim()) {
                     case 'Ongoing':
@@ -102,13 +127,13 @@ class AnimeFox extends models_1.AnimeParser {
             catch (err) {
                 throw new Error(err);
             }
-        });
+        };
         /**
          * @param page Page number
          */
-        this.fetchRecentEpisodes = (page = 1) => __awaiter(this, void 0, void 0, function* () {
+        this.fetchRecentEpisodes = async (page = 1) => {
             try {
-                const { data } = yield axios_1.default.get(`${this.baseUrl}/latest-added?page=${page}`);
+                const { data } = await axios_1.default.get(`${this.baseUrl}/latest-added?page=${page}`);
                 const $ = (0, cheerio_1.load)(data);
                 const hasNextPage = $('.pagination > nav > ul > li').last().hasClass('disabled') ? false : true;
                 const recentEpisodes = [];
@@ -131,25 +156,25 @@ class AnimeFox extends models_1.AnimeParser {
             catch (err) {
                 throw new Error('Something went wrong. Please try again later.');
             }
-        });
+        };
         /**
          *
          * @param episodeId episode id
          */
-        this.fetchEpisodeSources = (episodeId) => __awaiter(this, void 0, void 0, function* () {
+        this.fetchEpisodeSources = async (episodeId) => {
             try {
-                const { data } = yield axios_1.default.get(`${this.baseUrl}/watch/${episodeId}`);
+                const { data } = await axios_1.default.get(`${this.baseUrl}/watch/${episodeId}`);
                 const $ = (0, cheerio_1.load)(data);
                 const iframe = $('#iframe-to-load').attr('src') || '';
                 const streamUrl = `https://goload.io/streaming.php?id=${iframe.split('=').pop()}`;
                 return {
-                    sources: yield new utils_1.GogoCDN().extract(new URL(streamUrl)),
+                    sources: await new utils_1.GogoCDN().extract(new URL(streamUrl)),
                 };
             }
             catch (err) {
                 throw new Error('Something went wrong. Please try again later.');
             }
-        });
+        };
         /**
          * @deprecated Use fetchEpisodeSources instead
          */

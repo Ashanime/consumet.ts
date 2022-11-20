@@ -1,5 +1,6 @@
-import { AnimeParser, ISearch, IAnimeInfo, IAnimeResult, ISource, IAnimeEpisode, IEpisodeServer, Genres, MangaParser, IMangaChapterPage, IMangaInfo } from '../../models';
+import { AnimeParser, ISearch, IAnimeInfo, IAnimeResult, ISource, IAnimeEpisode, IEpisodeServer, Genres, MangaParser, IMangaChapterPage, IMangaInfo, IMangaResult, ProxyConfig } from '../../models';
 declare class Anilist extends AnimeParser {
+    proxyConfig?: ProxyConfig | undefined;
     readonly name = "Anilist";
     protected baseUrl: string;
     protected logo: string;
@@ -13,8 +14,9 @@ declare class Anilist extends AnimeParser {
      * This class maps anilist to kitsu with any other anime provider.
      * kitsu is used for episode images, titles and description.
      * @param provider anime provider (optional) default: Gogoanime
+     * @param proxy proxy config (optional) default: null
      */
-    constructor(provider?: AnimeParser);
+    constructor(provider?: AnimeParser, proxyConfig?: ProxyConfig | undefined);
     /**
      * @param query Search query
      * @param page Page number (optional)
@@ -33,14 +35,16 @@ declare class Anilist extends AnimeParser {
      * @param id anilist Id (optional)
      * @param year Year (optional) e.g. `2022`
      * @param status Status (optional) (options: `RELEASING`, `FINISHED`, `NOT_YET_RELEASED`, `CANCELLED`, `HIATUS`)
+     * @param season Season (optional) (options: `WINTER`, `SPRING`, `SUMMER`, `FALL`)
      */
-    advancedSearch: (query?: string, type?: string, page?: number, perPage?: number, format?: string, sort?: string[], genres?: Genres[] | string[], id?: string | number, year?: number, status?: string) => Promise<ISearch<IAnimeResult>>;
+    advancedSearch: (query?: string, type?: string, page?: number, perPage?: number, format?: string, sort?: string[], genres?: Genres[] | string[], id?: string | number, year?: number, status?: string, season?: string) => Promise<ISearch<IAnimeResult>>;
     /**
      *
      * @param id Anime id
      * @param dub to get dubbed episodes (optional) set to `true` to get dubbed episodes. **ONLY WORKS FOR GOGOANIME**
+     * @param fetchFiller to get filler boolean on the episode object (optional) set to `true` to get filler boolean on the episode object.
      */
-    fetchAnimeInfo: (id: string, dub?: boolean) => Promise<IAnimeInfo>;
+    fetchAnimeInfo: (id: string, dub?: boolean, fetchFiller?: boolean) => Promise<IAnimeInfo>;
     /**
      *
      * @param episodeId Episode id
@@ -69,12 +73,12 @@ declare class Anilist extends AnimeParser {
      *
      * @param page page number (optional)
      * @param perPage number of results per page (optional)
-     * @param weekStart Filter by the time in epoch seconds (optional) eg. if you set weekStart to this week's monday, and set weekEnd to next week's sunday, you will get all the airing anime in between these two dates.
-     * @param weekEnd Filter by the time in epoch seconds (optional)
+     * @param weekStart Filter by the start of the week (optional) (default: todays date) (options: 2 = Monday, 3 = Tuesday, 4 = Wednesday, 5 = Thursday, 6 = Friday, 0 = Saturday, 1 = Sunday) you can use either the number or the string
+     * @param weekEnd Filter by the end of the week (optional) similar to weekStart
      * @param notYetAired if true will return anime that have not yet aired (optional)
      * @returns the next airing episodes
      */
-    fetchAiringSchedule: (page?: number, perPage?: number, weekStart?: number, weekEnd?: number, notYetAired?: boolean) => Promise<ISearch<IAnimeResult>>;
+    fetchAiringSchedule: (page?: number, perPage?: number, weekStart?: number | string, weekEnd?: number | string, notYetAired?: boolean) => Promise<ISearch<IAnimeResult>>;
     /**
      *
      * @param genres An array of genres to filter by (optional) genres: [`Action`, `Adventure`, `Cars`, `Comedy`, `Drama`, `Fantasy`, `Horror`, `Mahou Shoujo`, `Mecha`, `Music`, `Mystery`, `Psychological`, `Romance`, `Sci-Fi`, `Slice of Life`, `Sports`, `Supernatural`, `Thriller`]
@@ -97,14 +101,21 @@ declare class Anilist extends AnimeParser {
     /**
      * @param id anilist id
      * @param dub language of the dubbed version (optional) currently only works for gogoanime
-     * @returns episode list
+     * @param fetchFiller to get filler boolean on the episode object (optional) set to `true` to get filler boolean on the episode object.
+     * @returns episode list **(without anime info)**
      */
-    fetchEpisodesListById: (id: string, dub?: boolean) => Promise<IAnimeEpisode[]>;
+    fetchEpisodesListById: (id: string, dub?: boolean, fetchFiller?: boolean) => Promise<IAnimeEpisode[]>;
     /**
      * @param id anilist id
-     * @returns anilist data for the anime
+     * @returns anilist data for the anime **(without episodes)** (use `fetchEpisodesListById` to get the episodes) (use `fetchAnimeInfo` to get both)
      */
     fetchAnilistInfoById: (id: string) => Promise<IAnimeInfo>;
+    /**
+     * TODO: finish this (got lazy)
+     * @param id staff id from anilist
+     *
+     */
+    fetchStaffById: (id: number) => Promise<never>;
     /**
      *
      * @param id character id from anilist
@@ -152,15 +163,30 @@ declare class Anilist extends AnimeParser {
      */
     static Anime: typeof Anilist;
     /**
-     * TODO: Anilist Manga Class
+     * Anilist Manga Class
      */
     static Manga: {
         new (provider?: MangaParser): {
             provider: MangaParser;
-            search: (query: string, ...args: any[]) => Promise<unknown>;
+            /**
+             *
+             * @param query query to search for
+             * @param page (optional) page number (default: `1`)
+             * @param perPage (optional) number of results per page (default: `20`)
+             */
+            search: (query: string, page?: number, perPage?: number) => Promise<ISearch<IMangaResult>>;
+            /**
+             *
+             * @param chapterId chapter id
+             * @param args args to pass to the provider (if any)
+             * @returns
+             */
             fetchChapterPages: (chapterId: string, ...args: any) => Promise<IMangaChapterPage[]>;
-            fetchMangaInfo: (mangaUrl: string, ...args: any) => Promise<IMangaInfo>;
+            fetchMangaInfo: (id: string, ...args: any) => Promise<IMangaInfo>;
         };
     };
+    private findMangaSlug;
+    private findMangaRaw;
+    private findManga;
 }
 export default Anilist;

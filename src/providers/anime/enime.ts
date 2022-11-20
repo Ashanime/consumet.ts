@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { load } from 'cheerio';
+import { Console } from 'console';
 import anime from '.';
 
 import {
@@ -12,6 +13,7 @@ import {
   IEpisodeServer,
   IAnimeEpisode,
   IVideo,
+  MediaFormat,
 } from '../../models';
 
 class Enime extends AnimeParser {
@@ -22,6 +24,15 @@ class Enime extends AnimeParser {
 
   private readonly enimeApi = 'https://api.enime.moe';
 
+  /**
+   * @param query Search query
+   * @param page Page number (optional)
+   */
+  rawSearch = async (query: string, page: number = 1, perPage: number = 15): Promise<any> => {
+    const { data } = await axios.get(`${this.enimeApi}/search/${query}?page=${page}&perPage=${perPage}`);
+
+    return data;
+  };
   /**
    * @param query Search query
    * @param page Page number (optional)
@@ -54,6 +65,7 @@ class Enime extends AnimeParser {
       rating: anime.averageScore,
       status: anime.status as MediaStatus,
       mappings: anime.mappings,
+      type: anime.format as MediaFormat,
     }));
     return res;
   };
@@ -86,6 +98,7 @@ class Enime extends AnimeParser {
     animeInfo.status = data.status as MediaStatus;
     animeInfo.synonyms = data.synonyms;
     animeInfo.mappings = data.mappings;
+    animeInfo.type = data.format as MediaFormat;
 
     data.episodes = data.episodes.sort((a: any, b: any) => b.number - a.number);
     animeInfo.episodes = data.episodes.map(
@@ -99,17 +112,24 @@ class Enime extends AnimeParser {
     return animeInfo;
   };
 
+  fetchAnimeInfoByIdRaw = async (id: string): Promise<any> => {
+    const { data } = await axios.get(`${this.enimeApi}/mapping/anilist/${id}`).catch(err => {
+      throw new Error("Backup api seems to be down! Can't fetch anime info");
+    });
+
+    return data;
+  };
+
   /**
    * @param id anilist id
    */
-  fetchAnimeInfoByAnilistId = async (id: string): Promise<IAnimeInfo> => {
+  fetchAnimeInfoByAnilistId = async (id: string, type?: 'gogoanime' | 'zoro'): Promise<IAnimeInfo> => {
     const animeInfo: IAnimeInfo = {
       id: id,
       title: '',
     };
-
-    const { data } = await axios.get(`${this.enimeApi}/mapping/anilist/${id}`).catch(() => {
-      throw new Error('Anime not found');
+    const { data } = await axios.get(`${this.enimeApi}/mapping/anilist/${id}`).catch(err => {
+      throw new Error(err);
     });
 
     animeInfo.anilistId = data.anilistId;
@@ -127,16 +147,34 @@ class Enime extends AnimeParser {
     animeInfo.status = data.status as MediaStatus;
     animeInfo.synonyms = data.synonyms;
     animeInfo.mappings = data.mappings;
+    animeInfo.type = data.format as MediaFormat;
 
     data.episodes = data.episodes.sort((a: any, b: any) => b.number - a.number);
+
+    let useType: 'zoro' | 'gogoanime' | undefined = undefined;
+    if (
+      type == 'gogoanime' &&
+      data.episodes.every((e: any) => e.sources.find((s: any) => s.target.includes('episode')))
+    )
+      useType = 'gogoanime';
+    else if (
+      type == 'zoro' &&
+      data.episodes.every((e: any) => e.sources.find((s: any) => s.target.includes('?ep=')))
+    )
+      useType = 'zoro';
+    else throw new Error('Anime not found on Enime');
 
     animeInfo.episodes = data.episodes.map(
       (episode: any): IAnimeEpisode => ({
         id: episode.id,
         slug: episode.sources
-          .find((source: any) => source.target.includes('zoro.to'))
-          ?.target.split('/')[4]
-          .replace('?ep=', '$episode$')!,
+          .find((source: any) =>
+            useType === 'zoro' ? source.target.includes('?ep=') : source.target.includes('episode')
+          )
+          ?.target.split('/')
+          .pop()
+          .replace('?ep=', '$episode$')
+          ?.concat(useType === 'zoro' ? '$sub' : '')!,
         description: episode.description,
         number: episode.number,
         title: episode.title,
@@ -164,9 +202,24 @@ class Enime extends AnimeParser {
     } = await axios.get(`${this.enimeApi}/source/${data.sources[0].id!}`);
 
     res.headers!['Referer'] = referer;
+
+    const resResult = await axios.get(url);
+    const resolutions = resResult.data.match(/(RESOLUTION=)(.*)(\s*?)(\s*.*)/g);
+    resolutions.forEach((ress: string) => {
+      var index = url.lastIndexOf('/');
+      var quality = ress.split('\n')[0].split('x')[1].split(',')[0];
+      var urll = url.slice(0, index);
+      res.sources.push({
+        url: urll + '/' + ress.split('\n')[1],
+        isM3U8: (urll + ress.split('\n')[1]).includes('.m3u8'),
+        quality: quality + 'p',
+      });
+    });
+
     res.sources.push({
       url: url,
       isM3U8: url.includes('.m3u8'),
+      quality: 'default',
     });
 
     return res;
@@ -183,9 +236,26 @@ class Enime extends AnimeParser {
     } = await axios.get(`${this.enimeApi}/source/${sourceId}`);
 
     res.headers!['Referer'] = referer;
+
+    const resResult = await axios.get(url).catch(() => {
+      throw new Error('Source not found');
+    });
+    const resolutions = resResult.data.match(/(RESOLUTION=)(.*)(\s*?)(\s*.*)/g);
+    resolutions.forEach((ress: string) => {
+      var index = url.lastIndexOf('/');
+      var quality = ress.split('\n')[0].split('x')[1].split(',')[0];
+      var urll = url.slice(0, index);
+      res.sources.push({
+        url: urll + '/' + ress.split('\n')[1],
+        isM3U8: (urll + ress.split('\n')[1]).includes('.m3u8'),
+        quality: quality + 'p',
+      });
+    });
+
     res.sources.push({
       url: url,
       isM3U8: url.includes('.m3u8'),
+      quality: 'default',
     });
 
     return res;

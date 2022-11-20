@@ -1,28 +1,22 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
+const crypto_js_1 = __importDefault(require("crypto-js"));
 const models_1 = require("../../models");
 class RapidCloud extends models_1.VideoExtractor {
     constructor() {
         super(...arguments);
         this.serverName = 'RapidCloud';
         this.sources = [];
+        this.fallbackKey = 'c1d17096f2ca11b7';
         this.host = 'https://rapid-cloud.co';
+        this.consumetApi = 'https://api.consumet.org';
         this.enimeApi = 'https://api.enime.moe';
-        this.extract = (videoUrl) => __awaiter(this, void 0, void 0, function* () {
+        this.extract = async (videoUrl) => {
             var _a, _b;
             const result = {
                 sources: [],
@@ -36,10 +30,26 @@ class RapidCloud extends models_1.VideoExtractor {
                     },
                 };
                 let res = null;
-                const { data: sId } = yield axios_1.default.get(`${this.enimeApi}/tool/rapid-cloud/server-id`);
-                res = yield axios_1.default.get(`${this.host}/ajax/embed-6/getSources?id=${id}&sId=${sId}`, options);
-                const { data: { sources, tracks, intro }, } = res;
-                this.sources = sources.map((s) => ({
+                // let { data: sId } = await axios({
+                //   method: 'GET',
+                //   url: `${this.consumetApi}/utils/rapid-cloud`,
+                //   validateStatus: status => true,
+                // });
+                // if (!sId) {
+                //   sId = await axios({
+                //     method: 'GET',
+                //     url: `${this.enimeApi}/tool/rapid-cloud/server-id`,
+                //     validateStatus: status => true,
+                //   });
+                // }
+                res = await axios_1.default.get(`${this.host}/ajax/embed-6/getSources?id=${id}`, options);
+                let { data: { sources, tracks, intro, encrypted }, } = res;
+                let decryptKey = await (await axios_1.default.get('https://raw.githubusercontent.com/consumet/rapidclown/main/key.txt')).data;
+                if (!decryptKey)
+                    decryptKey = this.fallbackKey;
+                if (encrypted)
+                    sources = JSON.parse(crypto_js_1.default.AES.decrypt(sources, decryptKey).toString(crypto_js_1.default.enc.Utf8));
+                this.sources = sources === null || sources === void 0 ? void 0 : sources.map((s) => ({
                     url: s.file,
                     isM3U8: s.file.includes('.m3u8'),
                 }));
@@ -48,7 +58,7 @@ class RapidCloud extends models_1.VideoExtractor {
                     result.sources = [];
                     this.sources = [];
                     for (const source of sources) {
-                        const { data } = yield axios_1.default.get(source.file, options);
+                        const { data } = await axios_1.default.get(source.file, options);
                         const m3u8data = data
                             .split('\n')
                             .filter((line) => line.includes('.m3u8') && line.includes('RESOLUTION='));
@@ -90,13 +100,13 @@ class RapidCloud extends models_1.VideoExtractor {
                 return result;
             }
             catch (err) {
-                throw new Error(err.message);
+                throw err;
             }
-        });
-        this.captcha = (url, key) => __awaiter(this, void 0, void 0, function* () {
+        };
+        this.captcha = async (url, key) => {
             const uri = new URL(url);
             const domain = uri.protocol + '//' + uri.host;
-            const { data } = yield axios_1.default.get(`https://www.google.com/recaptcha/api.js?render=${key}`, {
+            const { data } = await axios_1.default.get(`https://www.google.com/recaptcha/api.js?render=${key}`, {
                 headers: {
                     Referer: domain,
                 },
@@ -104,9 +114,9 @@ class RapidCloud extends models_1.VideoExtractor {
             const v = data === null || data === void 0 ? void 0 : data.substring(data.indexOf('/releases/'), data.lastIndexOf('/recaptcha')).split('/releases/')[1];
             //TODO: NEED to fix the co (domain) parameter to work with every domain
             const anchor = `https://www.google.com/recaptcha/api2/anchor?ar=1&hl=en&size=invisible&cb=kr42069kr&k=${key}&co=aHR0cHM6Ly9yYXBpZC1jbG91ZC5ydTo0NDM.&v=${v}`;
-            const c = (0, cheerio_1.load)((yield axios_1.default.get(anchor)).data)('#recaptcha-token').attr('value');
+            const c = (0, cheerio_1.load)((await axios_1.default.get(anchor)).data)('#recaptcha-token').attr('value');
             // currently its not returning proper response. not sure why
-            const res = yield axios_1.default.post(`https://www.google.com/recaptcha/api2/reload?k=${key}`, {
+            const res = await axios_1.default.post(`https://www.google.com/recaptcha/api2/reload?k=${key}`, {
                 v: v,
                 k: key,
                 c: c,
@@ -119,7 +129,7 @@ class RapidCloud extends models_1.VideoExtractor {
                 },
             });
             return res.data.substring(res.data.indexOf('rresp","'), res.data.lastIndexOf('",null'));
-        });
+        };
         // private wss = async (): Promise<string> => {
         //   let sId = '';
         //   const ws = new WebSocket('wss://ws1.rapid-cloud.ru/socket.io/?EIO=4&transport=websocket');

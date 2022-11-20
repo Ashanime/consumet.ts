@@ -100,6 +100,7 @@ class FlixHQ extends MovieParser {
         .map((i, el) => $(el).text())
         .get();
       movieInfo.production = $('div.row-line:nth-child(4) > a:nth-child(2)').text();
+      movieInfo.country = $('div.row-line:nth-child(1) > a:nth-child(2)').text();
       movieInfo.duration = $('span.item:nth-child(3)').text();
       movieInfo.rating = parseFloat($('span.item:nth-child(2)').text());
 
@@ -136,18 +137,13 @@ class FlixHQ extends MovieParser {
           season++;
         }
       } else {
-        const { data } = await axios.get(ajaxReqUrl(uid, 'movie'));
-        const $$$ = load(data);
-        movieInfo.episodes = $$$('.nav > li')
-          .map((i, el) => {
-            const episode = {
-              id: uid,
-              title: movieInfo.title + ' Movie',
-              url: `${this.baseUrl}/ajax/movie/episodes/${uid}`,
-            };
-            return episode;
-          })
-          .get();
+        movieInfo.episodes = [
+          {
+            id: uid,
+            title: movieInfo.title + ' Movie',
+            url: `${this.baseUrl}/ajax/movie/episodes/${uid}`,
+          },
+        ];
       }
 
       return movieInfo;
@@ -165,7 +161,7 @@ class FlixHQ extends MovieParser {
   override fetchEpisodeSources = async (
     episodeId: string,
     mediaId: string,
-    server: StreamingServers = StreamingServers.VidCloud
+    server: StreamingServers = StreamingServers.UpCloud
   ): Promise<ISource> => {
     if (episodeId.startsWith('http')) {
       const serverUrl = new URL(episodeId);
@@ -251,6 +247,71 @@ class FlixHQ extends MovieParser {
       throw new Error((err as Error).message);
     }
   };
+
+  fetchRecentMovies = async (): Promise<IMovieResult[]> => {
+    try {
+      const { data } = await axios.get(`${this.baseUrl}/home`);
+      const $ = load(data);
+
+      const movies = $('section.block_area:nth-child(5) > div:nth-child(2) > div:nth-child(1) > div.flw-item')
+        .map((i, el) => {
+          const releaseDate = $(el).find('div.film-detail > div.fd-infor > span:nth-child(1)').text();
+          const movie = {
+            id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
+            title: $(el).find('div.film-detail > h3.film-name > a').attr('title')!,
+            url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
+            image: $(el).find('div.film-poster > img').attr('data-src'),
+            releaseDate: isNaN(parseInt(releaseDate)) ? undefined : releaseDate,
+            duration: $(el).find('div.film-detail > div.fd-infor > span.fdi-duration').text() || null,
+            type:
+              $(el).find('div.film-detail > div.fd-infor > span.float-right').text() === 'Movie'
+                ? TvType.MOVIE
+                : TvType.TVSERIES,
+          };
+          return movie;
+        })
+        .get();
+      return movies;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
+
+  fetchRecentTvShows = async (): Promise<IMovieResult[]> => {
+    try {
+      const { data } = await axios.get(`${this.baseUrl}/home`);
+      const $ = load(data);
+
+      const tvshows = $(
+        'section.block_area:nth-child(6) > div:nth-child(2) > div:nth-child(1) > div.flw-item'
+      )
+        .map((i, el) => {
+          const tvshow = {
+            id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
+            title: $(el).find('div.film-detail > h3.film-name > a').attr('title')!,
+            url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
+            image: $(el).find('div.film-poster > img').attr('data-src'),
+            season: $(el).find('div.film-detail > div.fd-infor > span:nth-child(1)').text(),
+            latestEpisode: $(el).find('div.film-detail > div.fd-infor > span:nth-child(3)').text() || null,
+            type:
+              $(el).find('div.film-detail > div.fd-infor > span.float-right').text() === 'Movie'
+                ? TvType.MOVIE
+                : TvType.TVSERIES,
+          };
+          return tvshow;
+        })
+        .get();
+      return tvshows;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
 }
+
+// (async () => {
+//   const movie = new FlixHQ();
+//   const movieInfo = await movie.fetchEpisodeSources('1168337', 'tv/watch-vincenzo-67955');
+//   console.log(movieInfo);
+// })();
 
 export default FlixHQ;

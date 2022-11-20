@@ -11,6 +11,8 @@ import {
   IAnimeEpisode,
   IEpisodeServer,
   StreamingServers,
+  MediaFormat,
+  SubOrSub,
 } from '../../models';
 
 import { StreamSB, USER_AGENT, RapidCloud, StreamTape } from '../../utils';
@@ -61,7 +63,7 @@ class Zoro extends AnimeParser {
         res.results.push({
           id: id!,
           title: title,
-          type: type,
+          type: type.toUpperCase() as MediaFormat,
           image: image,
           url: url,
         });
@@ -89,8 +91,19 @@ class Zoro extends AnimeParser {
       info.image = $('img.film-poster-img').attr('src');
       info.description = $('div.film-description').text().trim();
       // Movie, TV, OVA, ONA, Special, Music
-      info.type = $('span.item').last().prev().prev().text();
+      info.type = $('span.item').last().prev().prev().text().toUpperCase() as MediaFormat;
       info.url = `${this.baseUrl}/${id}`;
+
+      const subDub = $('div.film-stats span.item div.tick-dub')
+        .toArray()
+        .map(value => $(value).text().toLowerCase());
+      if (subDub.length > 1) {
+        info.subOrDub = SubOrSub.BOTH;
+      } else if (subDub.length > 0) {
+        info.subOrDub = subDub[0] as SubOrSub;
+      } else {
+        info.subOrDub = SubOrSub.SUB;
+      }
 
       const episodesAjax = await axios.get(`${this.baseUrl}/ajax/v2/episode/list/${id.split('-').pop()}`, {
         headers: {
@@ -104,7 +117,11 @@ class Zoro extends AnimeParser {
       info.totalEpisodes = $$('div.detail-infor-content > div > a').length;
       info.episodes = [];
       $$('div.detail-infor-content > div > a').each((i, el) => {
-        const episodeId = $$(el).attr('href')?.split('/')[2]?.replace('?ep=', '$episode$')!;
+        const episodeId = $$(el)
+          .attr('href')
+          ?.split('/')[2]
+          ?.replace('?ep=', '$episode$')
+          ?.concat(`$${info.subOrDub}`)!;
         const number = parseInt($$(el).attr('data-number')!);
         const title = $$(el).attr('title');
         const url = this.baseUrl + $$(el).attr('href');
@@ -160,7 +177,15 @@ class Zoro extends AnimeParser {
       }
     }
     if (!episodeId.includes('$episode$')) throw new Error('Invalid episode id');
-    episodeId = `${this.baseUrl}/watch/${episodeId.replace('$episode$', '?ep=')}`;
+
+    // Fallback to using sub if no info found in case of compatibility
+
+    // TODO: add both options later
+    let subOrDub: 'sub' | 'dub' = episodeId.split('$')?.pop() === 'dub' ? 'dub' : 'sub';
+
+    episodeId = `${this.baseUrl}/watch/${episodeId
+      .replace('$episode$', '?ep=')
+      .replace(/\$auto|\$sub|\$dub/gi, '')}`;
 
     try {
       const { data } = await axios.get(
@@ -176,51 +201,49 @@ class Zoro extends AnimeParser {
        * streamtape -> 3
        */
       let serverId = '';
-      switch (server) {
-        case StreamingServers.VidCloud:
-          serverId = $('div.ps_-block.ps_-block-sub.servers-sub > div.ps__-list > div')
-            .map((i, el) => ($(el).attr('data-server-id') == '1' ? $(el) : null))
-            .get()[0]
-            .attr('data-id')!;
+      try {
+        switch (server) {
+          case StreamingServers.VidCloud:
+            serverId = this.retrieveServerId($, 1, subOrDub);
 
-          // zoro's vidcloud server is rapidcloud
-          if (!serverId) throw new Error('RapidCloud not found');
-          break;
-        case StreamingServers.VidStreaming:
-          serverId = $('div.ps_-block.ps_-block-sub.servers-sub > div.ps__-list > div')
-            .map((i, el) => ($(el).attr('data-server-id') == '4' ? $(el) : null))
-            .get()[0]
-            .attr('data-id')!;
+            // zoro's vidcloud server is rapidcloud
+            if (!serverId) throw new Error('RapidCloud not found');
+            break;
+          case StreamingServers.VidStreaming:
+            serverId = this.retrieveServerId($, 4, subOrDub);
 
-          // zoro's vidcloud server is rapidcloud
-          if (!serverId) throw new Error('RapidCloud not found');
-          break;
-        case StreamingServers.StreamSB:
-          serverId = $('div.ps_-block.ps_-block-sub.servers-sub > div.ps__-list > div')
-            .map((i, el) => ($(el).attr('data-server-id') == '5' ? $(el) : null))
-            .get()[0]
-            .attr('data-id')!;
+            // zoro's vidcloud server is rapidcloud
+            if (!serverId) throw new Error('vidtreaming not found');
+            break;
+          case StreamingServers.StreamSB:
+            serverId = this.retrieveServerId($, 5, subOrDub);
 
-          if (!serverId) throw new Error('StreamSB not found');
-          break;
-        case StreamingServers.StreamTape:
-          serverId = $('div.ps_-block.ps_-block-sub.servers-sub > div.ps__-list > div')
-            .map((i, el) => ($(el).attr('data-server-id') == '3' ? $(el) : null))
-            .get()[0]
-            .attr('data-id')!;
+            if (!serverId) throw new Error('StreamSB not found');
+            break;
+          case StreamingServers.StreamTape:
+            serverId = this.retrieveServerId($, 3, subOrDub);
 
-          if (!serverId) throw new Error('StreamTape not found');
-          break;
+            if (!serverId) throw new Error('StreamTape not found');
+            break;
+        }
+      } catch (err) {
+        throw new Error("Couldn't find server. Try another server");
       }
 
       const {
         data: { link },
       } = await axios.get(`${this.baseUrl}/ajax/v2/episode/sources?id=${serverId}`);
-
       return await this.fetchEpisodeSources(link, server);
     } catch (err) {
-      throw new Error((err as Error).message);
+      throw err;
     }
+  };
+
+  private retrieveServerId = ($: any, index: number, subOrDub: 'sub' | 'dub') => {
+    return $(`div.ps_-block.ps_-block-sub.servers-${subOrDub} > div.ps__-list > div`)
+      .map((i: any, el: any) => ($(el).attr('data-server-id') == `${index}` ? $(el) : null))
+      .get()[0]
+      .attr('data-id')!;
   };
 
   /**
@@ -269,5 +292,13 @@ class Zoro extends AnimeParser {
     throw new Error('Method not implemented.');
   };
 }
+
+// (async () => {
+//   const zoro = new Zoro();
+//   const anime = await zoro.search('classroom of the elite');
+//   const episodes = (await zoro.fetchAnimeInfo(anime.results[1].id)).episodes;
+//   const sources = await zoro.fetchEpisodeSources('bleach-the-movie-fade-to-black-1492$episode$58326');
+//   console.log(sources);
+// })();
 
 export default Zoro;

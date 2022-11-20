@@ -9,15 +9,21 @@ declare class Enime extends AnimeParser {
      * @param query Search query
      * @param page Page number (optional)
      */
+    rawSearch: (query: string, page?: number, perPage?: number) => Promise<any>;
+    /**
+     * @param query Search query
+     * @param page Page number (optional)
+     */
     search: (query: string, page?: number, perPage?: number) => Promise<ISearch<IAnimeResult>>;
     /**
      * @param id Anime id
      */
     fetchAnimeInfo: (id: string) => Promise<IAnimeInfo>;
+    fetchAnimeInfoByIdRaw: (id: string) => Promise<any>;
     /**
      * @param id anilist id
      */
-    fetchAnimeInfoByAnilistId: (id: string) => Promise<IAnimeInfo>;
+    fetchAnimeInfoByAnilistId: (id: string, type?: 'gogoanime' | 'zoro') => Promise<IAnimeInfo>;
     fetchEpisodeSources: (episodeId: string, ...args: any) => Promise<ISource>;
     private fetchSourceFromEpisodeId;
     private fetchSourceFromSourceId;
