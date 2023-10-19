@@ -2,10 +2,22 @@ import Gogoanime from './gogoanime';
 import NineAnime from './9anime';
 import AnimePahe from './animepahe';
 import Zoro from './zoro';
-import AniMixPlay from './animixplay';
 import AnimeFox from './animefox';
-import Enime from './enime';
+import Anify from './anify';
 import Crunchyroll from './crunchyroll';
 import Bilibili from './bilibili';
+import Marin from './marin';
+import AnimeSaturn from './animesaturn';
 
-export default { Gogoanime, NineAnime, AnimePahe, Zoro, AniMixPlay, AnimeFox, Enime, Crunchyroll, Bilibili };
+export default {
+  Gogoanime,
+  NineAnime,
+  AnimePahe,
+  Zoro,
+  AnimeFox,
+  Anify,
+  Crunchyroll,
+  Bilibili,
+  Marin,
+  AnimeSaturn,
+};

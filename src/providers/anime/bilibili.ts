@@ -1,4 +1,3 @@
-import axios from 'axios';
 import {
   AnimeParser,
   IAnimeEpisode,
@@ -8,31 +7,34 @@ import {
   ISearch,
   ISource,
   ISubtitle,
+  ProxyConfig,
   SubOrSub,
 } from '../../models';
-import { BilibiliExtractor } from '../../utils';
+import { BilibiliExtractor } from '../../extractors';
+import { AxiosAdapter } from 'axios';
 
 class Bilibili extends AnimeParser {
   override readonly name = 'Bilibili';
   protected override baseUrl = 'https://bilibili.tv';
-  protected override logo = 'https://www.apksforfree.com/wp-content/uploads/2021/10/oie_1413343NvdZCZR5.png';
+  protected override logo =
+    'https://w7.pngwing.com/pngs/656/356/png-transparent-bilibili-thumbnail-social-media-icons.png';
   protected override classPath = 'ANIME.Bilibili';
 
   private apiUrl = 'https://api.bilibili.tv/intl/gateway/web';
 
   private cookie = '';
   private locale = 'en_US';
-  private sgProxy = 'https://cors.proxy.consumet.org';
+  private sgProxy = 'https://cors.consumet.stream';
 
-  constructor(cookie?: string, locale?: string) {
-    super();
+  constructor(cookie?: string, locale?: string, proxyConfig?: ProxyConfig, adapter?: AxiosAdapter) {
+    super(proxyConfig, adapter);
     this.locale = locale ?? this.locale;
     if (!cookie) return;
     this.cookie = cookie;
   }
 
   override async search(query: string): Promise<ISearch<IAnimeResult>> {
-    const { data } = await axios.get(
+    const { data } = await this.client.get(
       `${this.sgProxy}/${this.apiUrl}/v2/search?keyword=${query}&platform=web&pn=1&ps=20&qid=&s_locale=${this.locale}`,
       { headers: { cookie: this.cookie } }
     );
@@ -58,7 +60,7 @@ class Bilibili extends AnimeParser {
 
   override async fetchAnimeInfo(id: string): Promise<IAnimeInfo> {
     try {
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.sgProxy}/https://app.biliintl.com/intl/gateway/v2/ogv/view/app/season2?locale=${this.locale}&platform=android&season_id=${id}`,
         { headers: { cookie: this.cookie } }
       );
@@ -99,15 +101,14 @@ class Bilibili extends AnimeParser {
 
   override async fetchEpisodeSources(episodeId: string, ...args: any): Promise<ISource> {
     try {
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.sgProxy}/${this.apiUrl}/v2/subtitle?s_locale=${this.locale}&platform=web&episode_id=${episodeId}`,
         { headers: { cookie: this.cookie } }
       );
-      const ss = await axios.get(
+      const ss = await this.client.get(
         `${this.sgProxy}/${this.apiUrl}/playurl?s_locale=${this.locale}&platform=web&ep_id=${episodeId}`,
         { headers: { cookie: this.cookie } }
       );
-      console.log(ss.data);
 
       const sources = await new BilibiliExtractor().extract(episodeId);
       return {
@@ -131,7 +132,7 @@ class Bilibili extends AnimeParser {
 }
 
 // (async () => {
-//   const source = new Bilibili(//   );
+//   const source = new Bilibili();
 
 //   const result = await source.search('classroom of the elite');
 //   const info = await source.fetchAnimeInfo(result.results[0].id);

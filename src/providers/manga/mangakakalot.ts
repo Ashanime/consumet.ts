@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { load } from 'cheerio';
 
 import {
@@ -14,8 +13,7 @@ import {
 class MangaKakalot extends MangaParser {
   override readonly name = 'MangaKakalot';
   protected override baseUrl = 'https://mangakakalot.com';
-  protected override logo =
-    'https://scontent-lga3-1.xx.fbcdn.net/v/t31.18172-8/23592342_1993674674222540_3098972633173711780_o.png?stp=cp0_dst-png_p64x64&_nc_cat=105&ccb=1-7&_nc_sid=85a577&_nc_ohc=j_WvAOX4tOwAX9dNL_4&_nc_ht=scontent-lga3-1.xx&oh=00_AT-ZFkuaHiS33j-oUCtn-jzwkLfVuCONx0aqF3QXrcFKvg&oe=62FC016C';
+  protected override logo = 'https://techbigs.com/uploads/2022/1/mangakakalot-apkoptimized.jpg';
   protected override classPath = 'MANGA.MangaKakalot';
 
   override fetchMangaInfo = async (mangaId: string): Promise<IMangaInfo> => {
@@ -25,7 +23,7 @@ class MangaKakalot extends MangaParser {
     };
     const url = mangaId.includes('read') ? this.baseUrl : 'https://readmanganato.com';
     try {
-      const { data } = await axios.get(`${url}/${mangaId}`);
+      const { data } = await this.client.get(`${url}/${mangaId}`);
       const $ = load(data);
 
       if (url.includes('mangakakalot')) {
@@ -134,7 +132,7 @@ class MangaKakalot extends MangaParser {
       const url = !chapterId.includes('$$READMANGANATO')
         ? `${this.baseUrl}/chapter/${chapterId}`
         : `https://readmanganato.com/${chapterId.replace('$$READMANGANATO', '')}`;
-      const { data } = await axios.get(url);
+      const { data } = await this.client.get(url);
       const $ = load(data);
 
       const pages = $('div.container-chapter-reader > img')
@@ -163,7 +161,7 @@ class MangaKakalot extends MangaParser {
    */
   override search = async (query: string): Promise<ISearch<IMangaResult>> => {
     try {
-      const { data } = await axios.get(`${this.baseUrl}/search/story/${query.replace(/ /g, '_')}`);
+      const { data } = await this.client.get(`${this.baseUrl}/search/story/${query.replace(/ /g, '_')}`);
       const $ = load(data);
 
       const results = $('div.daily-update > div > div')

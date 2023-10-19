@@ -1,9 +1,5 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
 const models_1 = require("../../models");
 class MangaKakalot extends models_1.MangaParser {
@@ -11,7 +7,7 @@ class MangaKakalot extends models_1.MangaParser {
         super(...arguments);
         this.name = 'MangaKakalot';
         this.baseUrl = 'https://mangakakalot.com';
-        this.logo = 'https://scontent-lga3-1.xx.fbcdn.net/v/t31.18172-8/23592342_1993674674222540_3098972633173711780_o.png?stp=cp0_dst-png_p64x64&_nc_cat=105&ccb=1-7&_nc_sid=85a577&_nc_ohc=j_WvAOX4tOwAX9dNL_4&_nc_ht=scontent-lga3-1.xx&oh=00_AT-ZFkuaHiS33j-oUCtn-jzwkLfVuCONx0aqF3QXrcFKvg&oe=62FC016C';
+        this.logo = 'https://techbigs.com/uploads/2022/1/mangakakalot-apkoptimized.jpg';
         this.classPath = 'MANGA.MangaKakalot';
         this.fetchMangaInfo = async (mangaId) => {
             const mangaInfo = {
@@ -20,7 +16,7 @@ class MangaKakalot extends models_1.MangaParser {
             };
             const url = mangaId.includes('read') ? this.baseUrl : 'https://readmanganato.com';
             try {
-                const { data } = await axios_1.default.get(`${url}/${mangaId}`);
+                const { data } = await this.client.get(`${url}/${mangaId}`);
                 const $ = (0, cheerio_1.load)(data);
                 if (url.includes('mangakakalot')) {
                     mangaInfo.title = $('div.manga-info-top > ul > li:nth-child(1) > h1').text();
@@ -120,7 +116,7 @@ class MangaKakalot extends models_1.MangaParser {
                 const url = !chapterId.includes('$$READMANGANATO')
                     ? `${this.baseUrl}/chapter/${chapterId}`
                     : `https://readmanganato.com/${chapterId.replace('$$READMANGANATO', '')}`;
-                const { data } = await axios_1.default.get(url);
+                const { data } = await this.client.get(url);
                 const $ = (0, cheerio_1.load)(data);
                 const pages = $('div.container-chapter-reader > img')
                     .map((i, el) => {
@@ -146,7 +142,7 @@ class MangaKakalot extends models_1.MangaParser {
          */
         this.search = async (query) => {
             try {
-                const { data } = await axios_1.default.get(`${this.baseUrl}/search/story/${query.replace(/ /g, '_')}`);
+                const { data } = await this.client.get(`${this.baseUrl}/search/story/${query.replace(/ /g, '_')}`);
                 const $ = (0, cheerio_1.load)(data);
                 const results = $('div.daily-update > div > div')
                     .map((i, el) => {

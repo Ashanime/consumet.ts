@@ -1,5 +1,5 @@
 import { load } from 'cheerio';
-import axios from 'axios';
+import { AxiosAdapter } from 'axios';
 
 import {
   MovieParser,
@@ -11,13 +11,12 @@ import {
   IMovieResult,
   ISearch,
 } from '../../models';
-import { MixDrop, VidCloud } from '../../utils';
+import { MixDrop, VidCloud } from '../../extractors';
 
 class FlixHQ extends MovieParser {
   override readonly name = 'FlixHQ';
   protected override baseUrl = 'https://flixhq.to';
-  protected override logo =
-    'https://img.flixhq.to/xxrz/400x400/100/ab/5f/ab5f0e1996cc5b71919e10e910ad593e/ab5f0e1996cc5b71919e10e910ad593e.png';
+  protected override logo = 'https://upload.wikimedia.org/wikipedia/commons/7/7a/MyAnimeList_Logo.png';
   protected override classPath = 'MOVIES.FlixHQ';
   override supportedTypes = new Set([TvType.MOVIE, TvType.TVSERIES]);
 
@@ -33,7 +32,7 @@ class FlixHQ extends MovieParser {
       results: [],
     };
     try {
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.baseUrl}/search/${query.replace(/[\W_]+/g, '-')}?page=${page}`
       );
 
@@ -52,6 +51,7 @@ class FlixHQ extends MovieParser {
           url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
           image: $(el).find('div.film-poster > img').attr('data-src'),
           releaseDate: isNaN(parseInt(releaseDate)) ? undefined : releaseDate,
+          seasons: releaseDate.includes('SS') ? parseInt(releaseDate.split('SS')[1]) : undefined,
           type:
             $(el).find('div.film-detail > div.fd-infor > span.float-right').text() === 'Movie'
               ? TvType.MOVIE
@@ -80,10 +80,28 @@ class FlixHQ extends MovieParser {
       url: mediaId,
     };
     try {
-      const { data } = await axios.get(mediaId);
+      const { data } = await this.client.get(mediaId);
       const $ = load(data);
+      const recommendationsArray: IMovieResult[] = [];
+
+      $(
+        'div.movie_information > div.container > div.m_i-related > div.film-related > section.block_area > div.block_area-content > div.film_list-wrap > div.flw-item'
+      ).each((i, el) => {
+        recommendationsArray.push({
+          id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
+          title: $(el).find('div.film-detail > h3.film-name > a').text(),
+          image: $(el).find('div.film-poster > img').attr('data-src'),
+          duration:
+            $(el).find('div.film-detail > div.fd-infor > span.fdi-duration').text().replace('m', '') ?? null,
+          type:
+            $(el).find('div.film-detail > div.fd-infor > span.fdi-type').text().toLowerCase() === 'tv'
+              ? TvType.TVSERIES
+              : TvType.MOVIE ?? null,
+        });
+      });
 
       const uid = $('.watch_block').attr('data-id')!;
+      movieInfo.cover = $('div.w_b-cover').attr('style')?.slice(22).replace(')', '').replace(';', '');
       movieInfo.title = $('.heading-name > a:nth-child(1)').text();
       movieInfo.image = $('.m_i-d-poster > div:nth-child(1) > img:nth-child(1)').attr('src');
       movieInfo.description = $('.description').text();
@@ -103,14 +121,14 @@ class FlixHQ extends MovieParser {
       movieInfo.country = $('div.row-line:nth-child(1) > a:nth-child(2)').text();
       movieInfo.duration = $('span.item:nth-child(3)').text();
       movieInfo.rating = parseFloat($('span.item:nth-child(2)').text());
-
-      let ajaxReqUrl = (id: string, type: string, isSeasons: boolean = false) =>
+      movieInfo.recommendations = recommendationsArray as any;
+      const ajaxReqUrl = (id: string, type: string, isSeasons: boolean = false) =>
         `${this.baseUrl}/ajax/${type === 'movie' ? type : `v2/${type}`}/${
           isSeasons ? 'seasons' : 'episodes'
         }/${id}`;
 
       if (movieInfo.type === TvType.TVSERIES) {
-        const { data } = await axios.get(ajaxReqUrl(uid, 'tv', true));
+        const { data } = await this.client.get(ajaxReqUrl(uid, 'tv', true));
         const $$ = load(data);
         const seasonsIds = $$('.dropdown-menu > a')
           .map((i, el) => $(el).attr('data-id'))
@@ -119,7 +137,7 @@ class FlixHQ extends MovieParser {
         movieInfo.episodes = [];
         let season = 1;
         for (const id of seasonsIds) {
-          const { data } = await axios.get(ajaxReqUrl(id, 'season'));
+          const { data } = await this.client.get(ajaxReqUrl(id, 'season'));
           const $$$ = load(data);
 
           $$$('.nav > li')
@@ -169,22 +187,22 @@ class FlixHQ extends MovieParser {
         case StreamingServers.MixDrop:
           return {
             headers: { Referer: serverUrl.href },
-            sources: await new MixDrop().extract(serverUrl),
+            sources: await new MixDrop(this.proxyConfig, this.adapter).extract(serverUrl),
           };
         case StreamingServers.VidCloud:
           return {
             headers: { Referer: serverUrl.href },
-            ...(await new VidCloud().extract(serverUrl, true)),
+            ...(await new VidCloud(this.proxyConfig, this.adapter).extract(serverUrl, true)),
           };
         case StreamingServers.UpCloud:
           return {
             headers: { Referer: serverUrl.href },
-            ...(await new VidCloud().extract(serverUrl)),
+            ...(await new VidCloud(this.proxyConfig, this.adapter).extract(serverUrl)),
           };
         default:
           return {
             headers: { Referer: serverUrl.href },
-            sources: await new MixDrop().extract(serverUrl),
+            sources: await new MixDrop(this.proxyConfig, this.adapter).extract(serverUrl),
           };
       }
     }
@@ -198,7 +216,7 @@ class FlixHQ extends MovieParser {
         throw new Error(`Server ${server} not found`);
       }
 
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.baseUrl}/ajax/get_link/${servers[i].url.split('.').slice(-1).shift()}`
       );
 
@@ -221,7 +239,7 @@ class FlixHQ extends MovieParser {
     else episodeId = `${this.baseUrl}/ajax/movie/episodes/${episodeId}`;
 
     try {
-      const { data } = await axios.get(episodeId);
+      const { data } = await this.client.get(episodeId);
       const $ = load(data);
 
       const servers = $('.nav > li')
@@ -250,13 +268,15 @@ class FlixHQ extends MovieParser {
 
   fetchRecentMovies = async (): Promise<IMovieResult[]> => {
     try {
-      const { data } = await axios.get(`${this.baseUrl}/home`);
+      const { data } = await this.client.get(`${this.baseUrl}/home`);
       const $ = load(data);
 
-      const movies = $('section.block_area:nth-child(5) > div:nth-child(2) > div:nth-child(1) > div.flw-item')
+      const movies = $(
+        'section.block_area:contains("Latest Movies") > div:nth-child(2) > div:nth-child(1) > div.flw-item'
+      )
         .map((i, el) => {
           const releaseDate = $(el).find('div.film-detail > div.fd-infor > span:nth-child(1)').text();
-          const movie = {
+          const movie: any = {
             id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
             title: $(el).find('div.film-detail > h3.film-name > a').attr('title')!,
             url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
@@ -279,12 +299,69 @@ class FlixHQ extends MovieParser {
 
   fetchRecentTvShows = async (): Promise<IMovieResult[]> => {
     try {
-      const { data } = await axios.get(`${this.baseUrl}/home`);
+      const { data } = await this.client.get(`${this.baseUrl}/home`);
       const $ = load(data);
 
       const tvshows = $(
-        'section.block_area:nth-child(6) > div:nth-child(2) > div:nth-child(1) > div.flw-item'
+        'section.block_area:contains("Latest TV Shows") > div:nth-child(2) > div:nth-child(1) > div.flw-item'
       )
+        .map((i, el) => {
+          const tvshow = {
+            id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
+            title: $(el).find('div.film-detail > h3.film-name > a').attr('title')!,
+            url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
+            image: $(el).find('div.film-poster > img').attr('data-src'),
+            season: $(el).find('div.film-detail > div.fd-infor > span:nth-child(1)').text(),
+            latestEpisode: $(el).find('div.film-detail > div.fd-infor > span:nth-child(3)').text() || null,
+            type:
+              $(el).find('div.film-detail > div.fd-infor > span.float-right').text() === 'Movie'
+                ? TvType.MOVIE
+                : TvType.TVSERIES,
+          };
+          return tvshow;
+        })
+        .get();
+      return tvshows;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
+
+  fetchTrendingMovies = async (): Promise<IMovieResult[]> => {
+    try {
+      const { data } = await this.client.get(`${this.baseUrl}/home`);
+      const $ = load(data);
+
+      const movies = $('div#trending-movies div.film_list-wrap div.flw-item')
+        .map((i, el) => {
+          const releaseDate = $(el).find('div.film-detail > div.fd-infor > span:nth-child(1)').text();
+          const movie: any = {
+            id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
+            title: $(el).find('div.film-detail > h3.film-name > a').attr('title')!,
+            url: `${this.baseUrl}${$(el).find('div.film-poster > a').attr('href')}`,
+            image: $(el).find('div.film-poster > img').attr('data-src'),
+            releaseDate: isNaN(parseInt(releaseDate)) ? undefined : releaseDate,
+            duration: $(el).find('div.film-detail > div.fd-infor > span.fdi-duration').text() || null,
+            type:
+              $(el).find('div.film-detail > div.fd-infor > span.float-right').text() === 'Movie'
+                ? TvType.MOVIE
+                : TvType.TVSERIES,
+          };
+          return movie;
+        })
+        .get();
+      return movies;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
+
+  fetchTrendingTvShows = async (): Promise<IMovieResult[]> => {
+    try {
+      const { data } = await this.client.get(`${this.baseUrl}/home`);
+      const $ = load(data);
+
+      const tvshows = $('div#trending-tv div.film_list-wrap div.flw-item')
         .map((i, el) => {
           const tvshow = {
             id: $(el).find('div.film-poster > a').attr('href')?.slice(1)!,
@@ -310,8 +387,10 @@ class FlixHQ extends MovieParser {
 
 // (async () => {
 //   const movie = new FlixHQ();
-//   const movieInfo = await movie.fetchEpisodeSources('1168337', 'tv/watch-vincenzo-67955');
-//   console.log(movieInfo);
+//   const search = await movie.search('the flash');
+//   // const movieInfo = await movie.fetchEpisodeSources('1168337', 'tv/watch-vincenzo-67955');
+//   // const recentTv = await movie.fetchTrendingTvShows();
+//   console.log(search);
 // })();
 
 export default FlixHQ;

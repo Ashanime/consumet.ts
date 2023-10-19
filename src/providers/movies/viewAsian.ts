@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { AxiosAdapter } from 'axios';
 import { load } from 'cheerio';
 
 import {
@@ -10,8 +10,9 @@ import {
   ISource,
   IMovieResult,
   ISearch,
+  ProxyConfig,
 } from '../../models';
-import { MixDrop, AsianLoad, StreamTape, StreamSB } from '../../utils';
+import { MixDrop, AsianLoad, StreamTape, StreamSB } from '../../extractors';
 
 class ViewAsian extends MovieParser {
   override readonly name = 'ViewAsian';
@@ -28,7 +29,7 @@ class ViewAsian extends MovieParser {
     };
 
     try {
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.baseUrl}/movie/search/${query.replace(/[\W_]+/g, '-')}?page=${page}`
       );
 
@@ -58,7 +59,6 @@ class ViewAsian extends MovieParser {
 
       return searchResult;
     } catch (err) {
-      console.log(err);
       throw new Error((err as Error).message);
     }
   };
@@ -74,12 +74,13 @@ class ViewAsian extends MovieParser {
     };
 
     try {
-      const { data } = await axios.get(mediaId);
+      const { data } = await this.client.get(mediaId);
 
       const $ = load(data);
 
       mediaInfo.id = realMediaId;
       mediaInfo.title = $('.detail-mod h3').text();
+      mediaInfo.banner = $('.detail-mod > dm-thumb > img').attr('src');
       mediaInfo.otherNames = $('.other-name a')
         .map((i, el) => $(el).attr('title')!.trim())
         .get();
@@ -117,29 +118,31 @@ class ViewAsian extends MovieParser {
       const serverUrl = new URL(episodeId);
       switch (server) {
         case StreamingServers.AsianLoad:
-          return { ...(await new AsianLoad().extract(serverUrl)) };
+          return {
+            ...(await new AsianLoad(this.proxyConfig, this.adapter).extract(serverUrl)),
+          };
         case StreamingServers.MixDrop:
           return {
-            sources: await new MixDrop().extract(serverUrl),
+            sources: await new MixDrop(this.proxyConfig, this.adapter).extract(serverUrl),
           };
         case StreamingServers.StreamTape:
           return {
-            sources: await new StreamTape().extract(serverUrl),
+            sources: await new StreamTape(this.proxyConfig, this.adapter).extract(serverUrl),
           };
         case StreamingServers.StreamSB:
           return {
-            sources: await new StreamSB().extract(serverUrl),
+            sources: await new StreamSB(this.proxyConfig, this.adapter).extract(serverUrl),
           };
         default:
           throw new Error('Server not supported');
       }
     }
     if (!episodeId.includes('$episode$')) throw new Error('Invalid episode id');
-    episodeId = `${this.baseUrl}${episodeId.replace('$episode$', '?ep=')}`;
+    episodeId = `${episodeId.replace('$episode$', '?ep=')}`;
 
     // return episodeId;
     try {
-      const { data } = await axios.get(episodeId);
+      const { data } = await this.client.get(episodeId);
 
       const $ = load(data);
 

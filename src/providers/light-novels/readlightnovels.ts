@@ -1,5 +1,4 @@
 import { load } from 'cheerio';
-import axios from 'axios';
 import FormData from 'form-data';
 
 import {
@@ -39,7 +38,7 @@ class ReadLightNovels extends LightNovelParser {
     };
 
     try {
-      const page = await axios.get(lightNovelUrl, {
+      const page = await this.client.get(lightNovelUrl, {
         headers: {
           Referer: lightNovelUrl,
         },
@@ -72,7 +71,7 @@ class ReadLightNovels extends LightNovelParser {
         .eq(0)
         .nextUntil('hr')
         .text();
-      let pages = Math.max(
+      const pages = Math.max(
         ...$('#pagination > ul > li')
           .map((i, el) => parseInt($(el).find('a').attr('data-page')!))
           .get()
@@ -117,7 +116,7 @@ class ReadLightNovels extends LightNovelParser {
     bodyFormData.append('page', chapterPage);
     bodyFormData.append('id', novelId);
 
-    const page = await axios({
+    const page = await this.client({
       method: 'post',
       url: `${this.baseUrl}/wp-admin/admin-ajax.php`,
       data: bodyFormData,
@@ -161,17 +160,21 @@ class ReadLightNovels extends LightNovelParser {
       chapterId = `${this.baseUrl}/${chapterId}.html`;
     }
     const contents: ILightNovelChapterContent = {
+      novelTitle: '',
+      chapterTitle: '',
       text: '',
-      html: '',
     };
 
     try {
-      const page = await axios.get(chapterId);
+      const page = await this.client.get(chapterId);
       const $ = load(page.data);
 
+      contents.novelTitle = $('.truyen-title').text();
+      contents.chapterTitle = $('.chapter-title').text();
       for (const line of $('div.chapter-content > p')) {
-        contents.html += `<p>${$(line).html()}</p>`;
-        contents.text += `${$(line).text()}\n`;
+        if ($(line).text() != '﻿') {
+          contents.text += `${$(line).text()}\n`;
+        }
       }
 
       return contents;
@@ -187,7 +190,7 @@ class ReadLightNovels extends LightNovelParser {
   override search = async (query: string): Promise<ISearch<ILightNovelResult>> => {
     const result: ISearch<ILightNovelResult> = { results: [] };
     try {
-      const res = await axios.post(`${this.baseUrl}/?s=${query}`);
+      const res = await this.client.post(`${this.baseUrl}/?s=${query}`);
       const $ = load(res.data);
 
       $(
@@ -209,3 +212,9 @@ class ReadLightNovels extends LightNovelParser {
 }
 
 export default ReadLightNovels;
+
+// (async () => {
+//   const ln = new ReadLightNovels();
+//   const chap = await ln.fetchChapterContent('youkoso-jitsuryoku-shijou-shugi-no-kyoushitsu-e/volume-1-prologue-the-structure-of-japanese-society');
+//   console.log(chap);
+// })();

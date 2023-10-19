@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { load } from 'cheerio';
 
 import {
@@ -12,7 +11,7 @@ import {
   MediaFormat,
 } from '../../models';
 
-import { GogoCDN } from '../../utils';
+import { GogoCDN } from '../../extractors';
 
 class AnimeFox extends AnimeParser {
   override readonly name = 'AnimeFox';
@@ -24,10 +23,9 @@ class AnimeFox extends AnimeParser {
    * @param query Search query
    * @param page Page number (optional)
    */
-
   override search = async (query: string, page: number = 1): Promise<ISearch<IAnimeResult>> => {
     try {
-      const { data } = await axios.get(
+      const { data } = await this.client.get(
         `${this.baseUrl}/search?keyword=${decodeURIComponent(query)}&page=${page}`
       );
 
@@ -78,14 +76,13 @@ class AnimeFox extends AnimeParser {
   /**
    * @param id Anime id
    */
-
   override fetchAnimeInfo = async (id: string): Promise<IAnimeInfo> => {
     const info: IAnimeInfo = {
       id: id,
       title: '',
     };
     try {
-      const { data } = await axios.get(`${this.baseUrl}/anime/${id}`);
+      const { data } = await this.client.get(`${this.baseUrl}/anime/${id}`);
       const $ = load(data);
 
       info.title = $('h2.film-name').attr('data-jname')!;
@@ -129,6 +126,8 @@ class AnimeFox extends AnimeParser {
       )!;
       info.url = `${this.baseUrl}/${id}`;
       info.episodes = [];
+      info.hasSub = $('div.anisc-info > div:nth-child(3) > span:nth-child(2)').text().trim() == 'Subbed';
+      info.hasDub = $('div.anisc-info > div:nth-child(3) > span:nth-child(2)').text().trim() == 'Dubbed';
       const episodes = Array.from({ length: info.totalEpisodes }, (_, i) => i + 1);
       episodes.forEach((element, i) =>
         info.episodes?.push({
@@ -149,7 +148,7 @@ class AnimeFox extends AnimeParser {
    */
   fetchRecentEpisodes = async (page: number = 1): Promise<ISearch<IAnimeResult>> => {
     try {
-      const { data } = await axios.get(`${this.baseUrl}/latest-added?page=${page}`);
+      const { data } = await this.client.get(`${this.baseUrl}/latest-added?page=${page}`);
       const $ = load(data);
 
       const hasNextPage = $('.pagination > nav > ul > li').last().hasClass('disabled') ? false : true;
@@ -182,15 +181,15 @@ class AnimeFox extends AnimeParser {
    */
   override fetchEpisodeSources = async (episodeId: string): Promise<ISource> => {
     try {
-      const { data } = await axios.get(`${this.baseUrl}/watch/${episodeId}`);
+      const { data } = await this.client.get(`${this.baseUrl}/watch/${episodeId}`);
       const $ = load(data);
       const iframe = $('#iframe-to-load').attr('src') || '';
-      const streamUrl = `https://goload.io/streaming.php?id=${iframe.split('=').pop()}`;
-
+      const streamUrl = `https://goload.io/streaming.php?id=${iframe.split('=')[1]}`;
       return {
-        sources: await new GogoCDN().extract(new URL(streamUrl)),
+        sources: await new GogoCDN(this.proxyConfig).extract(new URL(streamUrl)),
       };
     } catch (err) {
+      console.log(err);
       throw new Error('Something went wrong. Please try again later.');
     }
   };
@@ -204,3 +203,11 @@ class AnimeFox extends AnimeParser {
 }
 
 export default AnimeFox;
+
+// (async () => {
+//   const animepahe = new AnimeFox();
+//   const sources = await animepahe.fetchEpisodeSources(
+//     'youkoso-jitsuryoku-shijou-shugi-no-kyoushitsu-e-tv-episode-1'
+//   );
+//   console.log(sources);
+// })();

@@ -1,3 +1,4 @@
+import { AxiosAdapter } from 'axios';
 import { AnimeParser, ISearch, IAnimeInfo, IAnimeResult, ISource, IAnimeEpisode, IEpisodeServer, Genres, MangaParser, IMangaChapterPage, IMangaInfo, IMangaResult, ProxyConfig } from '../../models';
 declare class Anilist extends AnimeParser {
     proxyConfig?: ProxyConfig | undefined;
@@ -8,15 +9,16 @@ declare class Anilist extends AnimeParser {
     private readonly anilistGraphqlUrl;
     private readonly kitsuGraphqlUrl;
     private readonly malSyncUrl;
-    private readonly enimeUrl;
+    private readonly anifyUrl;
     provider: AnimeParser;
     /**
      * This class maps anilist to kitsu with any other anime provider.
      * kitsu is used for episode images, titles and description.
      * @param provider anime provider (optional) default: Gogoanime
-     * @param proxy proxy config (optional) default: null
+     * @param proxyConfig proxy config (optional)
+     * @param adapter axios adapter (optional)
      */
-    constructor(provider?: AnimeParser, proxyConfig?: ProxyConfig | undefined);
+    constructor(provider?: AnimeParser, proxyConfig?: ProxyConfig | undefined, adapter?: AxiosAdapter);
     /**
      * @param query Search query
      * @param page Page number (optional)
@@ -49,7 +51,7 @@ declare class Anilist extends AnimeParser {
      *
      * @param episodeId Episode id
      */
-    fetchEpisodeSources: (episodeId: string) => Promise<ISource>;
+    fetchEpisodeSources: (episodeId: string, ...args: any) => Promise<ISource>;
     /**
      *
      * @param episodeId Episode id
@@ -96,7 +98,7 @@ declare class Anilist extends AnimeParser {
      * @param page page number (optional)
      * @param perPage number of results per page (optional)
      */
-    fetchRecentEpisodes: (provider?: 'gogoanime' | 'zoro', page?: number, perPage?: number) => Promise<ISearch<IAnimeResult>>;
+    fetchRecentEpisodes: (provider?: 'gogoanime' | 'zoro', page?: number) => Promise<ISearch<IAnimeResult>>;
     private fetchDefaultEpisodeList;
     /**
      * @param id anilist id

@@ -27,7 +27,7 @@ export interface IAnimeResult {
   rating?: number;
   type?: MediaFormat;
   releaseDate?: string;
-  [x: string]: unknown; // other fields
+  [x: string]: any; // other fields
 }
 
 export interface ISearch<T> {
@@ -100,6 +100,22 @@ export interface IAnimeInfo extends IAnimeResult {
   relations?: IAnimeResult[];
 }
 
+export interface IAnimeEpisodeV2 {
+  [x: string]: {
+    id: string;
+    season_number: number;
+    title: string;
+    image: string;
+    description: string;
+    releaseDate: string;
+    isHD: boolean;
+    isAdult: boolean;
+    isDubbed: boolean;
+    isSubbed: boolean;
+    duration: number;
+  }[];
+}
+
 export interface IAnimeEpisode {
   id: string;
   number: number;
@@ -146,6 +162,7 @@ export enum StreamingServers {
   GogoCDN = 'gogocdn',
   StreamSB = 'streamsb',
   MixDrop = 'mixdrop',
+  Mp4Upload = 'mp4upload',
   UpCloud = 'upcloud',
   VidCloud = 'vidcloud',
   StreamTape = 'streamtape',
@@ -154,6 +171,10 @@ export enum StreamingServers {
   MyCloud = 'mycloud',
   Filemoon = 'filemoon',
   VidStreaming = 'vidstreaming',
+  SmashyStream = 'smashystream',
+  StreamHub = 'streamhub',
+  StreamWish = 'streamwish',
+  VidMoly = 'vidmoly',
 }
 
 export enum MediaStatus {
@@ -223,8 +244,9 @@ export interface ILightNovelChapter {
 }
 
 export interface ILightNovelChapterContent {
+  novelTitle: string;
+  chapterTitle: string;
   text: string;
-  html?: string;
 }
 
 export interface ILightNovelInfo extends ILightNovelResult {
@@ -300,8 +322,11 @@ export interface Intro {
 export interface ISource {
   headers?: { [k: string]: string };
   intro?: Intro;
+  outro?: Intro;
   subtitles?: ISubtitle[];
   sources: IVideo[];
+  download?: string;
+  embedURL?: string;
 }
 
 /**
@@ -319,6 +344,7 @@ export interface IMovieEpisode {
   url?: string;
   number?: number;
   season?: number;
+  description?: string;
   image?: string;
   releaseDate?: string;
   [x: string]: unknown; // other fields
@@ -369,6 +395,8 @@ interface INewsFeedPreview {
 }
 
 export interface IMovieInfo extends IMovieResult {
+  cover?: string;
+  recommendations?: IMovieResult[];
   genres?: string[];
   description?: string;
   rating?: number;
@@ -378,6 +406,7 @@ export interface IMovieInfo extends IMovieResult {
   casts?: string[];
   tags?: string[];
   totalEpisodes?: number;
+  seasons?: { season: number; image?: string; episodes: IMovieEpisode[] }[];
   episodes?: IMovieEpisode[];
 }
 
@@ -387,7 +416,6 @@ export enum Genres {
   CARS = 'Cars',
   COMEDY = 'Comedy',
   DRAMA = 'Drama',
-  ECCHI = 'Ecchi',
   FANTASY = 'Fantasy',
   HORROR = 'Horror',
   MAHOU_SHOUJO = 'Mahou Shoujo',
@@ -423,9 +451,13 @@ export interface ProxyConfig {
    * The proxy URL
    * @example https://proxy.com
    **/
-  url: string;
+  url: string | string[];
   /**
    * X-API-Key header value (if any)
    **/
   key?: string;
+  /**
+   * The proxy rotation interval in milliseconds. (default: 5000)
+   */
+  rotateInterval?: number;
 }

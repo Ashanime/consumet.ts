@@ -1,5 +1,4 @@
 import { load } from 'cheerio';
-import axios from 'axios';
 import {
   IEpisodeServer,
   IMovieInfo,
@@ -9,8 +8,6 @@ import {
   MovieParser,
   TvType,
 } from '../../models';
-
-const { get } = axios;
 
 class Ummangurau extends MovieParser {
   override readonly name = 'Ummangurau';
@@ -26,7 +23,9 @@ class Ummangurau extends MovieParser {
       results: [],
     };
     try {
-      const { data } = await get(`${this.baseUrl}/search/${query.replace(/[\W_]+/g, '-')}?page=${page}`);
+      const { data } = await this.client.get(
+        `${this.baseUrl}/search/${query.replace(/[\W_]+/g, '-')}?page=${page}`
+      );
 
       const $ = load(data);
 
@@ -55,7 +54,7 @@ class Ummangurau extends MovieParser {
     }
   };
 
-  override fetchMediaInfo = async (mediaId: string) => {
+  override fetchMediaInfo = async (mediaId: string): Promise<IMovieInfo> => {
     if (!mediaId.startsWith(this.baseUrl)) {
       mediaId = `${this.baseUrl}/${mediaId}`;
     }
@@ -66,7 +65,7 @@ class Ummangurau extends MovieParser {
       url: mediaId,
     };
     try {
-      const { data } = await get(mediaId);
+      const { data } = await this.client.get(mediaId);
       const $ = load(data);
 
       movieInfo.title = `${$('.heading-name a').text()}`;
@@ -82,6 +81,8 @@ class Ummangurau extends MovieParser {
     } catch (err) {
       throw new Error((err as Error).message);
     }
+
+    return movieInfo;
   };
 
   override fetchEpisodeServers(mediaLink: string, ...args: any): Promise<IEpisodeServer[]> {

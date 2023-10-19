@@ -11,9 +11,6 @@ consumet.ts is a Node library which provides high-level APIs to get information 
   <a href="https://github.com/consumet/consumet.ts/actions/workflows/npm-publish.yml">
     <img src="https://github.com/consumet/consumet.ts/actions/workflows/npm-publish.yml/badge.svg" alt="npm (scoped)">
   </a>
-  <a href="https://github.com/consumet/consumet.ts/actions/workflows/codeql-analysis.yml">
-    <img src="https://github.com/consumet/consumet.ts/actions/workflows/codeql-analysis.yml/badge.svg" alt="npm (scoped)">
-  </a>
     <a href="https://discord.gg/qTPfvMxzNH">
     <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="Prs are welcome">
   </a>
@@ -64,7 +61,7 @@ const data = books.search('pride and prejudice').then(data => {
 })
 ```
 
-**Exmaple** - searching for anime using the gogoanime provider.
+**Example** - searching for anime using the gogoanime provider.
 ```ts
 import { ANIME } from "@consumet/extensions"
 
@@ -114,10 +111,10 @@ You can contact the maintainers of consumet.ts via [email](mailto:consumet.org@g
 ## Contributors ✨
 Thanks to the following people for keeping this project alive and thriving.
 
-[![](https://contrib.rocks/image?repo=consumet/consumet.ts)](https://github.com/errorerrorerror/anime-now/graphs/contributors)
+[![](https://contrib.rocks/image?repo=consumet/consumet.ts)](https://github.com/consumet/consumet.ts/graphs/contributors)
 
 ### Credits
-- [Enime API](https://github.com/Enime-Project/api.enime.moe) - Used as a caching layer for the meta/anilist provider to speed up responses. 
+- [Anify API](https://github.com/Eltik/Anify) - Used as a caching layer for the meta/anilist provider to speed up responses. 
 
 ## License
 Licensed under [MIT](./LICENSE).

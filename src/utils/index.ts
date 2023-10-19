@@ -8,10 +8,12 @@ import {
   StreamTape,
   VizCloud,
   Filemoon,
-  Vrv,
   BilibiliExtractor,
   AsianLoad,
-} from './extractors';
+  SmashyStream,
+  StreamHub,
+  VidMoly,
+} from '../extractors';
 import {
   USER_AGENT,
   splitAuthor,
@@ -24,6 +26,9 @@ import {
   days,
   isJson,
   convertDuration,
+  substringAfter,
+  substringBefore,
+  compareTwoStrings,
 } from './utils';
 import {
   anilistSearchQuery,
@@ -43,6 +48,8 @@ export {
   USER_AGENT,
   GogoCDN,
   StreamSB,
+  SmashyStream,
+  StreamHub,
   splitAuthor,
   floorID,
   formatTitle,
@@ -69,9 +76,12 @@ export {
   anilistCharacterQuery,
   getDays,
   days,
-  Vrv,
   isJson,
   convertDuration,
   BilibiliExtractor,
   AsianLoad,
+  substringAfter,
+  substringBefore,
+  compareTwoStrings,
+  VidMoly,
 };

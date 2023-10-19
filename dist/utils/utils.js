@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compareTwoStrings = exports.convertDuration = exports.isJson = exports.getDays = exports.capitalizeFirstLetter = exports.range = exports.genElement = exports.formatTitle = exports.floorID = exports.splitAuthor = exports.days = exports.USER_AGENT = void 0;
+exports.substringBeforeLast = exports.substringAfterLast = exports.substringBefore = exports.substringAfter = exports.compareTwoStrings = exports.convertDuration = exports.isJson = exports.getDays = exports.capitalizeFirstLetter = exports.range = exports.genElement = exports.formatTitle = exports.floorID = exports.splitAuthor = exports.days = exports.USER_AGENT = void 0;
 const cheerio_1 = require("cheerio");
 exports.USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36';
 exports.days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -66,7 +66,7 @@ const genElement = (s, e) => {
 exports.genElement = genElement;
 const range = ({ from = 0, to = 0, step = 1, length = Math.ceil((to - from) / step) }) => Array.from({ length }, (_, i) => from + i * step);
 exports.range = range;
-const capitalizeFirstLetter = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const capitalizeFirstLetter = (s) => (s === null || s === void 0 ? void 0 : s.charAt(0).toUpperCase()) + s.slice(1);
 exports.capitalizeFirstLetter = capitalizeFirstLetter;
 const getDays = (day1, day2) => {
     const day1Index = exports.days.indexOf((0, exports.capitalizeFirstLetter)(day1)) - 1;
@@ -107,7 +107,7 @@ const compareTwoStrings = (first, second) => {
         return 1; // identical or empty
     if (first.length < 2 || second.length < 2)
         return 0; // if either is a 0-letter or 1-letter string
-    let firstBigrams = new Map();
+    const firstBigrams = new Map();
     for (let i = 0; i < first.length - 1; i++) {
         const bigram = first.substring(i, i + 2);
         const count = firstBigrams.has(bigram) ? firstBigrams.get(bigram) + 1 : 1;
@@ -125,4 +125,24 @@ const compareTwoStrings = (first, second) => {
     return (2.0 * intersectionSize) / (first.length + second.length - 2);
 };
 exports.compareTwoStrings = compareTwoStrings;
+const substringAfter = (str, toFind) => {
+    const index = str.indexOf(toFind);
+    return index == -1 ? '' : str.substring(index + toFind.length);
+};
+exports.substringAfter = substringAfter;
+const substringBefore = (str, toFind) => {
+    const index = str.indexOf(toFind);
+    return index == -1 ? '' : str.substring(0, index);
+};
+exports.substringBefore = substringBefore;
+const substringAfterLast = (str, toFind) => {
+    const index = str.lastIndexOf(toFind);
+    return index == -1 ? '' : str.substring(index + toFind.length);
+};
+exports.substringAfterLast = substringAfterLast;
+const substringBeforeLast = (str, toFind) => {
+    const index = str.lastIndexOf(toFind);
+    return index == -1 ? '' : str.substring(0, index);
+};
+exports.substringBeforeLast = substringBeforeLast;
 //# sourceMappingURL=utils.js.map

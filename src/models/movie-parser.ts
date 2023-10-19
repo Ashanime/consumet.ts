@@ -1,4 +1,5 @@
-import { BaseParser, TvType, ISource, IEpisodeServer } from '.';
+import { BaseParser, TvType, ISource, IEpisodeServer, IMovieInfo, IAnimeInfo, ProxyConfig } from '.';
+import { AxiosAdapter } from 'axios';
 
 abstract class MovieParser extends BaseParser {
   /**
@@ -11,7 +12,7 @@ abstract class MovieParser extends BaseParser {
    *
    * returns media info (including episodes)
    */
-  abstract fetchMediaInfo(mediaId: string): Promise<unknown>;
+  abstract fetchMediaInfo(mediaId: string, type?: string): Promise<IMovieInfo | IAnimeInfo>;
 
   /**
    * takes episode id
