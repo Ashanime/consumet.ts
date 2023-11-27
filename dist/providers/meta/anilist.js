@@ -460,7 +460,7 @@ class Anilist extends models_1.AnimeParser {
                     (animeInfo.status === models_1.MediaStatus.ONGOING ||
                         (0, utils_1.range)({ from: 1940, to: new Date().getFullYear() + 1 }).includes(parseInt(animeInfo.releaseDate)))) {
                     try {
-                        const anifyInfo = await new anify_1.default().fetchAnimeInfo(id, this.provider.name.toLowerCase());
+                        const anifyInfo = await new anify_1.default(this.proxyConfig, this.adapter, this.provider.name.toLowerCase()).fetchAnimeInfo(id);
                         animeInfo.mappings = anifyInfo.mappings;
                         animeInfo.artwork = anifyInfo.artwork;
                         animeInfo.episodes = (_54 = anifyInfo.episodes) === null || _54 === void 0 ? void 0 : _54.map((item) => {
@@ -550,7 +550,7 @@ class Anilist extends models_1.AnimeParser {
          */
         this.fetchEpisodeSources = async (episodeId, ...args) => {
             try {
-                if (episodeId.includes('/') && this.provider instanceof anify_1.default)
+                if (this.provider instanceof anify_1.default)
                     return new anify_1.default().fetchEpisodeSources(episodeId, args[0], args[1]);
                 return this.provider.fetchEpisodeSources(episodeId, ...args);
             }
@@ -1094,40 +1094,42 @@ class Anilist extends models_1.AnimeParser {
          * @param page page number (optional)
          * @param perPage number of results per page (optional)
          */
-        this.fetchRecentEpisodes = async (provider = 'gogoanime', page = 1) => {
+        this.fetchRecentEpisodes = async (provider = 'gogoanime', page = 1, perPage = 25) => {
             try {
-                const { data: { data, meta }, } = await this.client.get(`${this.anifyUrl}/recent?page=${page}`);
-                let results = data.map((item) => {
-                    var _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
-                    return ({
-                        id: item.anime.anilistId.toString(),
-                        malId: (_b = item.anime.mappings) === null || _b === void 0 ? void 0 : _b.mal,
+                const { data } = await this.client.get(`${this.anifyUrl}/recent?page=${page}&perPage=${perPage}&type=anime`);
+                const results = data === null || data === void 0 ? void 0 : data.map((item) => {
+                    var _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+                    return {
+                        id: item.id.toString(),
+                        malId: (_b = item.mappings.find((item) => item.providerType === 'META' && item.providerId === 'mal')) === null || _b === void 0 ? void 0 : _b.id,
                         title: {
-                            romaji: (_c = item.anime.title) === null || _c === void 0 ? void 0 : _c.romaji,
-                            english: (_d = item.anime.title) === null || _d === void 0 ? void 0 : _d.english,
-                            native: (_e = item.anime.title) === null || _e === void 0 ? void 0 : _e.native,
-                            userPreferred: (_f = item.anime.title) === null || _f === void 0 ? void 0 : _f.userPreferred,
+                            romaji: (_c = item.title) === null || _c === void 0 ? void 0 : _c.romaji,
+                            english: (_d = item.title) === null || _d === void 0 ? void 0 : _d.english,
+                            native: (_e = item.title) === null || _e === void 0 ? void 0 : _e.native,
+                            // userPreferred: (_f = item.title) === null || _f === void 0 ? void 0 : _f.userPreferred,
                         },
-                        image: (_g = item.anime.coverImage) !== null && _g !== void 0 ? _g : item.anime.bannerImage,
-                        rating: item.anime.averageScore,
-                        color: (_h = item.anime) === null || _h === void 0 ? void 0 : _h.color,
+                        image: (_f = item.coverImage) !== null && _f !== void 0 ? _f : item.bannerImage,
+                        rating: item.averageScore,
+                        color: (_g = item.anime) === null || _g === void 0 ? void 0 : _g.color,
                         episodeId: `${provider === 'gogoanime'
-                            ? (_j = item.sources.find((source) => source.website.toLowerCase() === 'gogoanime')) === null || _j === void 0 ? void 0 : _j.id
-                            : (_k = item.sources.find((source) => source.website.toLowerCase() === 'zoro')) === null || _k === void 0 ? void 0 : _k.id}`,
-                        episodeTitle: (_l = item.title) !== null && _l !== void 0 ? _l : `Episode ${item.number}`,
-                        episodeNumber: item.number,
-                        genres: item.anime.genre,
-                        type: item.anime.format,
-                    });
+                            ? (_j = (_h = item.episodes.data
+                                .find((source) => source.providerId.toLowerCase() === 'gogoanime')) === null || _h === void 0 ? void 0 : _h.episodes.pop()) === null || _j === void 0 ? void 0 : _j.id
+                            : (_l = (_k = item.episodes.data
+                                .find((source) => source.providerId.toLowerCase() === 'zoro')) === null || _k === void 0 ? void 0 : _k.episodes.pop()) === null || _l === void 0 ? void 0 : _l.id}`,
+                        episodeTitle: (_m = item.episodes.latest.latestTitle) !== null && _m !== void 0 ? _m : `Episode ${item.currentEpisode}`,
+                        episodeNumber: item.currentEpisode,
+                        genres: item.genre,
+                        type: item.format,
+                    };
                 });
-                results = results.filter((item) => item.episodeNumber !== 0 &&
-                    item.episodeId.replace('-enime', '').length > 0 &&
-                    item.episodeId.replace('-enime', '') !== 'undefined');
+                // results = results.filter((item) => item.episodeNumber !== 0 &&
+                //     item.episodeId.replace('-enime', '').length > 0 &&
+                //     item.episodeId.replace('-enime', '') !== 'undefined');
                 return {
                     currentPage: page,
-                    hasNextPage: meta.lastPage !== page,
-                    totalPages: meta.lastPage,
-                    totalResults: meta.total,
+                    // hasNextPage: meta.lastPage !== page,
+                    // totalPages: meta.lastPage,
+                    totalResults: results === null || results === void 0 ? void 0 : results.length,
                     results: results,
                 };
             }
@@ -1839,8 +1841,9 @@ Anilist.Manga = class Manga {
     }
 };
 // (async () => {
-//   const ani = new Anilist();
-//   const anime = await ani.fetchAnimeInfo('1');
+//   const ani = new Anilist(new Zoro());
+//   const anime = await ani.fetchAnimeInfo('21');
+//   console.log(anime.episodes);
 //   const sources = await ani.fetchEpisodeSources(anime.episodes![0].id, anime.episodes![0].number, anime.id);
 //   console.log(sources);
 // })();

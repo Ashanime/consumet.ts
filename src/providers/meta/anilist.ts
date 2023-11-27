@@ -533,10 +533,11 @@ class Anilist extends AnimeParser {
           range({ from: 1940, to: new Date().getFullYear() + 1 }).includes(parseInt(animeInfo.releaseDate!)))
       ) {
         try {
-          const anifyInfo = await new Anify().fetchAnimeInfo(
-            id,
+          const anifyInfo = await new Anify(
+            this.proxyConfig,
+            this.adapter,
             this.provider.name.toLowerCase() as 'gogoanime' | 'zoro' | 'animepahe' | '9anime'
-          );
+          ).fetchAnimeInfo(id);
           animeInfo.mappings = anifyInfo.mappings;
           animeInfo.artwork = anifyInfo.artwork;
           animeInfo.episodes = anifyInfo.episodes?.map((item: any) => ({
@@ -650,8 +651,7 @@ class Anilist extends AnimeParser {
    */
   override fetchEpisodeSources = async (episodeId: string, ...args: any): Promise<ISource> => {
     try {
-      if (episodeId.includes('/') && this.provider instanceof Anify)
-        return new Anify().fetchEpisodeSources(episodeId, args[0], args[1]);
+      if (this.provider instanceof Anify) return new Anify().fetchEpisodeSources(episodeId, args[0], args[1]);
       return this.provider.fetchEpisodeSources(episodeId, ...args);
     } catch (err) {
       throw new Error(`Failed to fetch episode sources from ${this.provider.name}: ${err}`);
@@ -1303,48 +1303,51 @@ class Anilist extends AnimeParser {
    */
   fetchRecentEpisodes = async (
     provider: 'gogoanime' | 'zoro' = 'gogoanime',
-    page: number = 1
+    page: number = 1,
+    perPage: number = 25
   ): Promise<ISearch<IAnimeResult>> => {
     try {
-      const {
-        data: { data, meta },
-      } = await this.client.get(`${this.anifyUrl}/recent?page=${page}&type=anime`);
-
-      let results: IAnimeInfo[] = data.map((item: any) => ({
-        id: item.anime.anilistId.toString(),
-        malId: item.anime.mappings?.mal,
-        title: {
-          romaji: item.anime.title?.romaji,
-          english: item.anime.title?.english,
-          native: item.anime.title?.native,
-          userPreferred: item.anime.title?.userPreferred,
-        },
-        image: item.anime.coverImage ?? item.anime.bannerImage,
-        rating: item.anime.averageScore,
-        color: item.anime?.color,
-        episodeId: `${
-          provider === 'gogoanime'
-            ? item.sources.find((source: any) => source.website.toLowerCase() === 'gogoanime')?.id
-            : item.sources.find((source: any) => source.website.toLowerCase() === 'zoro')?.id
-        }`,
-        episodeTitle: item.title ?? `Episode ${item.number}`,
-        episodeNumber: item.number,
-        genres: item.anime.genre,
-        type: item.anime.format,
-      }));
-
-      results = results.filter(
-        (item: any) =>
-          item.episodeNumber !== 0 &&
-          item.episodeId.replace('-enime', '').length > 0 &&
-          item.episodeId.replace('-enime', '') !== 'undefined'
+      const { data } = await this.client.get(
+        `${this.anifyUrl}/recent?page=${page}&perPage=${perPage}&type=anime`
       );
 
+      const results: IAnimeInfo[] = data?.map((item: any) => {
+        return {
+          id: item.id.toString(),
+          malId: item.mappings.find((item: any) => item.providerType === 'META' && item.providerId === 'mal')
+            ?.id,
+          title: {
+            romaji: item.title?.romaji,
+            english: item.title?.english,
+            native: item.title?.native,
+            // userPreferred: (_f = item.title) === null || _f === void 0 ? void 0 : _f.userPreferred,
+          },
+          image: item.coverImage ?? item.bannerImage,
+          rating: item.averageScore,
+          color: item.anime?.color,
+          episodeId: `${
+            provider === 'gogoanime'
+              ? item.episodes.data
+                  .find((source: any) => source.providerId.toLowerCase() === 'gogoanime')
+                  ?.episodes.pop()?.id
+              : item.episodes.data
+                  .find((source: any) => source.providerId.toLowerCase() === 'zoro')
+                  ?.episodes.pop()?.id
+          }`,
+          episodeTitle: item.episodes.latest.latestTitle ?? `Episode ${item.currentEpisode}`,
+          episodeNumber: item.currentEpisode,
+          genres: item.genre,
+          type: item.format,
+        };
+      });
+      // results = results.filter((item) => item.episodeNumber !== 0 &&
+      //     item.episodeId.replace('-enime', '').length > 0 &&
+      //     item.episodeId.replace('-enime', '') !== 'undefined');
       return {
         currentPage: page,
-        hasNextPage: meta.lastPage !== page,
-        totalPages: meta.lastPage,
-        totalResults: meta.total,
+        // hasNextPage: meta.lastPage !== page,
+        // totalPages: meta.lastPage,
+        totalResults: results?.length,
         results: results,
       };
     } catch (err) {
@@ -2177,8 +2180,9 @@ class Anilist extends AnimeParser {
 }
 
 // (async () => {
-//   const ani = new Anilist();
-//   const anime = await ani.fetchAnimeInfo('1');
+//   const ani = new Anilist(new Zoro());
+//   const anime = await ani.fetchAnimeInfo('21');
+//   console.log(anime.episodes);
 //   const sources = await ani.fetchEpisodeSources(anime.episodes![0].id, anime.episodes![0].number, anime.id);
 //   console.log(sources);
 // })();
