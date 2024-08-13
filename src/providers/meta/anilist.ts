@@ -19,6 +19,7 @@ import {
   ProxyConfig,
   MediaFormat,
   ITitle,
+  IStaff,
 } from '../../models';
 import {
   anilistSearchQuery,
@@ -31,6 +32,7 @@ import {
   anilistAdvancedQuery,
   anilistSiteStatisticsQuery,
   anilistCharacterQuery,
+  anilistStaffInfoQuery,
   range,
   getDays,
   days,
@@ -44,7 +46,7 @@ import Mangasee123 from '../manga/mangasee123';
 import Crunchyroll from '../anime/crunchyroll';
 import Bilibili from '../anime/bilibili';
 import NineAnime from '../anime/9anime';
-import { compareTwoStrings } from '../../utils/utils';
+import { ANIFY_URL, compareTwoStrings, getHashFromImage } from '../../utils/utils';
 
 class Anilist extends AnimeParser {
   override readonly name = 'Anilist';
@@ -55,7 +57,7 @@ class Anilist extends AnimeParser {
   private readonly anilistGraphqlUrl = 'https://graphql.anilist.co';
   private readonly kitsuGraphqlUrl = 'https://kitsu.io/api/graphql';
   private readonly malSyncUrl = 'https://api.malsync.moe';
-  private readonly anifyUrl = 'https://api.anify.tv';
+  private readonly anifyUrl = ANIFY_URL;
   provider: AnimeParser;
 
   /**
@@ -65,9 +67,14 @@ class Anilist extends AnimeParser {
    * @param proxyConfig proxy config (optional)
    * @param adapter axios adapter (optional)
    */
-  constructor(provider?: AnimeParser, public proxyConfig?: ProxyConfig, adapter?: AxiosAdapter) {
+  constructor(
+    provider?: AnimeParser,
+    public proxyConfig?: ProxyConfig,
+    adapter?: AxiosAdapter,
+    customBaseURL?: string
+  ) {
     super(proxyConfig, adapter);
-    this.provider = provider || new Gogoanime(proxyConfig);
+    this.provider = provider || new Gogoanime(customBaseURL, proxyConfig);
   }
 
   /**
@@ -122,7 +129,11 @@ class Anilist extends AnimeParser {
                 ? MediaStatus.HIATUS
                 : MediaStatus.UNKNOWN,
             image: item.coverImage?.extraLarge ?? item.coverImage?.large ?? item.coverImage?.medium,
+            imageHash: getHashFromImage(
+              item.coverImage?.extraLarge ?? item.coverImage?.large ?? item.coverImage?.medium
+            ),
             cover: item.bannerImage,
+            coverHash: getHashFromImage(item.bannerImage),
             popularity: item.popularity,
             description: item.description,
             rating: item.averageScore,
@@ -152,7 +163,9 @@ class Anilist extends AnimeParser {
                 ? MediaStatus.HIATUS
                 : MediaStatus.UNKNOWN,
             image: item.coverImage ?? item.bannerImage,
+            imageHash: getHashFromImage(item.coverImage ?? item.bannerImage),
             cover: item.bannerImage,
+            coverHash: getHashFromImage(item.bannerImage),
             popularity: item.popularity,
             description: item.description,
             rating: item.averageScore,
@@ -269,7 +282,11 @@ class Anilist extends AnimeParser {
               ? MediaStatus.HIATUS
               : MediaStatus.UNKNOWN,
           image: item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           cover: item.bannerImage,
+          coverHash: getHashFromImage(item.bannerImage),
           popularity: item.popularity,
           totalEpisodes: item.episodes ?? item.nextAiringEpisode?.episode - 1,
           currentEpisode: item.nextAiringEpisode?.episode - 1 ?? item.episodes,
@@ -298,7 +315,9 @@ class Anilist extends AnimeParser {
                 ? MediaStatus.HIATUS
                 : MediaStatus.UNKNOWN,
             image: item.coverImage ?? item.bannerImage,
+            imageHash: getHashFromImage(item.coverImage ?? item.bannerImage),
             cover: item.bannerImage,
+            coverHash: getHashFromImage(item.bannerImage),
             popularity: item.popularity,
             description: item.description,
             rating: item.averageScore,
@@ -374,6 +393,7 @@ class Anilist extends AnimeParser {
           id: data.data.Media.trailer.id,
           site: data.data.Media.trailer?.site,
           thumbnail: data.data.Media.trailer?.thumbnail,
+          thumbnailHash: getHashFromImage(data.data.Media.trailer?.thumbnail),
         };
       }
       animeInfo.image =
@@ -383,9 +403,20 @@ class Anilist extends AnimeParser {
         data.coverImage ??
         data.bannerImage;
 
+      animeInfo.imageHash = getHashFromImage(
+        data.data?.Media?.coverImage?.extraLarge ??
+          data.data?.Media?.coverImage?.large ??
+          data.data?.Media?.coverImage?.medium ??
+          data.coverImage ??
+          data.bannerImage
+      );
+
       animeInfo.popularity = data.data?.Media?.popularity ?? data?.popularity;
       animeInfo.color = data.data?.Media?.coverImage?.color ?? data?.color;
       animeInfo.cover = data.data?.Media?.bannerImage ?? data?.bannerImage ?? animeInfo.image;
+      animeInfo.coverHash = getHashFromImage(
+        data.data?.Media?.bannerImage ?? data?.bannerImage ?? animeInfo.image
+      );
       animeInfo.description = data.data?.Media?.description ?? data?.description;
       switch (data.data?.Media?.status ?? data?.status) {
         case 'RELEASING':
@@ -459,11 +490,22 @@ class Anilist extends AnimeParser {
           item.node.mediaRecommendation?.coverImage?.extraLarge ??
           item.node.mediaRecommendation?.coverImage?.large ??
           item.node.mediaRecommendation?.coverImage?.medium,
+        imageHash: getHashFromImage(
+          item.node.mediaRecommendation?.coverImage?.extraLarge ??
+            item.node.mediaRecommendation?.coverImage?.large ??
+            item.node.mediaRecommendation?.coverImage?.medium
+        ),
         cover:
           item.node.mediaRecommendation?.bannerImage ??
           item.node.mediaRecommendation?.coverImage?.extraLarge ??
           item.node.mediaRecommendation?.coverImage?.large ??
           item.node.mediaRecommendation?.coverImage?.medium,
+        coverHash: getHashFromImage(
+          item.node.mediaRecommendation?.bannerImage ??
+            item.node.mediaRecommendation?.coverImage?.extraLarge ??
+            item.node.mediaRecommendation?.coverImage?.large ??
+            item.node.mediaRecommendation?.coverImage?.medium
+        ),
         rating: item.node.mediaRecommendation?.meanScore,
         type: item.node.mediaRecommendation?.format,
       }));
@@ -479,6 +521,7 @@ class Anilist extends AnimeParser {
           userPreferred: item.node.name.userPreferred,
         },
         image: item.node.image.large ?? item.node.image.medium,
+        imageHash: getHashFromImage(item.node.image.large ?? item.node.image.medium),
         voiceActors: item.voiceActors.map((voiceActor: any) => ({
           id: voiceActor.id,
           language: voiceActor.languageV2,
@@ -490,6 +533,7 @@ class Anilist extends AnimeParser {
             userPreferred: voiceActor.name.userPreferred,
           },
           image: voiceActor.image.large ?? voiceActor.image.medium,
+          imageHash: getHashFromImage(voiceActor.image.large ?? voiceActor.image.medium),
         })),
       }));
 
@@ -517,6 +561,9 @@ class Anilist extends AnimeParser {
             : MediaStatus.UNKNOWN,
         episodes: item.node.episodes,
         image: item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium,
+        imageHash: getHashFromImage(
+          item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium
+        ),
         color: item.node.coverImage?.color,
         type: item.node.format,
         cover:
@@ -524,6 +571,12 @@ class Anilist extends AnimeParser {
           item.node.coverImage.extraLarge ??
           item.node.coverImage.large ??
           item.node.coverImage.medium,
+        coverHash: getHashFromImage(
+          item.node.bannerImage ??
+            item.node.coverImage.extraLarge ??
+            item.node.coverImage.large ??
+            item.node.coverImage.medium
+        ),
         rating: item.node.meanScore,
       }));
       if (
@@ -546,6 +599,7 @@ class Anilist extends AnimeParser {
             description: item.description,
             number: item.number,
             image: item.image,
+            imageHash: getHashFromImage(item.image),
             airDate: item.airDate ?? null,
           }));
           if (!animeInfo.episodes?.length) {
@@ -563,7 +617,10 @@ class Anilist extends AnimeParser {
               id
             );
             animeInfo.episodes = animeInfo.episodes?.map((episode: IAnimeEpisode) => {
-              if (!episode.image) episode.image = animeInfo.image;
+              if (!episode.image) {
+                episode.image = animeInfo.image;
+                episode.imageHash = animeInfo.imageHash;
+              }
 
               return episode;
             });
@@ -584,7 +641,10 @@ class Anilist extends AnimeParser {
           );
 
           animeInfo.episodes = animeInfo.episodes?.map((episode: IAnimeEpisode) => {
-            if (!episode.image) episode.image = animeInfo.image;
+            if (!episode.image) {
+              episode.image = animeInfo.image;
+              episode.imageHash = animeInfo.imageHash;
+            }
 
             return episode;
           });
@@ -625,7 +685,10 @@ class Anilist extends AnimeParser {
       }
 
       animeInfo.episodes = animeInfo.episodes?.map((episode: IAnimeEpisode) => {
-        if (!episode.image) episode.image = animeInfo.image;
+        if (!episode.image) {
+          episode.image = animeInfo.image;
+          episode.imageHash = animeInfo.imageHash;
+        }
 
         if (
           fetchFiller &&
@@ -886,10 +949,16 @@ class Anilist extends AnimeParser {
               let description = undefined;
               let thumbnail = undefined;
 
+              let thumbnailHash = undefined;
+
               if (episode?.description?.en)
                 description = episode?.description.en.toString().replace(/"/g, '').replace('\\n', '\n');
-              if (episode?.thumbnail)
+              if (episode?.thumbnail) {
                 thumbnail = episode?.thumbnail.original.url.toString().replace(/"/g, '');
+                thumbnailHash = getHashFromImage(
+                  episode?.thumbnail.original.url.toString().replace(/"/g, '')
+                );
+              }
 
               if (episode) {
                 if (episode.titles?.canonical) name = episode.titles.canonical.toString().replace(/"/g, '');
@@ -908,6 +977,7 @@ class Anilist extends AnimeParser {
                 description: undefined,
                 createdAt: undefined,
                 thumbnail,
+                thumbnailHash,
               });
             }
           }
@@ -923,6 +993,7 @@ class Anilist extends AnimeParser {
           id: ep.id as string,
           title: ep.title ?? episodesList.get(j)?.title ?? null,
           image: ep.image ?? episodesList.get(j)?.thumbnail ?? null,
+          imageHash: getHashFromImage(ep.image ?? episodesList.get(j)?.thumbnail ?? null),
           number: ep.number as number,
           createdAt: ep.createdAt ?? episodesList.get(j)?.createdAt ?? null,
           description: ep.description ?? episodesList.get(j)?.description ?? null,
@@ -964,10 +1035,14 @@ class Anilist extends AnimeParser {
               userPreferred: item.title.userPreferred,
             } || item.title.romaji,
           image: item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           trailer: {
             id: item.trailer?.id,
             site: item.trailer?.site,
             thumbnail: item.trailer?.thumbnail,
+            thumbnailHash: getHashFromImage(item.trailer?.thumbnail),
           },
           description: item.description,
           status:
@@ -984,6 +1059,9 @@ class Anilist extends AnimeParser {
               : MediaStatus.UNKNOWN,
           cover:
             item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          coverHash: getHashFromImage(
+            item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           rating: item.averageScore,
           releaseDate: item.seasonYear,
           color: item.coverImage?.color,
@@ -1030,10 +1108,14 @@ class Anilist extends AnimeParser {
               userPreferred: item.title.userPreferred,
             } || item.title.romaji,
           image: item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           trailer: {
             id: item.trailer?.id,
             site: item.trailer?.site,
             thumbnail: item.trailer?.thumbnail,
+            thumbnailHash: getHashFromImage(item.trailer?.thumbnail),
           },
           description: item.description,
           status:
@@ -1050,6 +1132,9 @@ class Anilist extends AnimeParser {
               : MediaStatus.UNKNOWN,
           cover:
             item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          coverHash: getHashFromImage(
+            item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           rating: item.averageScore,
           releaseDate: item.seasonYear,
           color: item.coverImage?.color,
@@ -1122,12 +1207,21 @@ class Anilist extends AnimeParser {
           country: item.media.countryOfOrigin,
           image:
             item.media.coverImage.extraLarge ?? item.media.coverImage.large ?? item.media.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.media.coverImage.extraLarge ?? item.media.coverImage.large ?? item.media.coverImage.medium
+          ),
           description: item.media.description,
           cover:
             item.media.bannerImage ??
             item.media.coverImage.extraLarge ??
             item.media.coverImage.large ??
             item.media.coverImage.medium,
+          coverHash: getHashFromImage(
+            item.media.bannerImage ??
+              item.media.coverImage.extraLarge ??
+              item.media.coverImage.large ??
+              item.media.coverImage.medium
+          ),
           genres: item.media.genres,
           color: item.media.coverImage?.color,
           rating: item.media.averageScore,
@@ -1177,14 +1271,21 @@ class Anilist extends AnimeParser {
               userPreferred: item.title.userPreferred,
             } || item.title.romaji,
           image: item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           trailer: {
             id: item.trailer?.id,
             site: item.trailer?.site,
             thumbnail: item.trailer?.thumbnail,
+            thumbnailHash: getHashFromImage(item.trailer?.thumbnail),
           },
           description: item.description,
           cover:
             item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium,
+          coverHash: getHashFromImage(
+            item.bannerImage ?? item.coverImage.extraLarge ?? item.coverImage.large ?? item.coverImage.medium
+          ),
           rating: item.averageScore,
           releaseDate: item.seasonYear,
           color: item.coverImage?.color,
@@ -1323,6 +1424,7 @@ class Anilist extends AnimeParser {
             // userPreferred: (_f = item.title) === null || _f === void 0 ? void 0 : _f.userPreferred,
           },
           image: item.coverImage ?? item.bannerImage,
+          imageHash: getHashFromImage(item.coverImage ?? item.bannerImage),
           rating: item.averageScore,
           color: item.anime?.color,
           episodeId: `${
@@ -1422,14 +1524,19 @@ class Anilist extends AnimeParser {
           description: item.description,
           number: item.number,
           image: item.image,
+          imageHash: getHashFromImage(item.image),
         }))!;
 
         if (!possibleAnimeEpisodes.length) {
           possibleAnimeEpisodes = await this.fetchDefaultEpisodeList(Media, dub, id);
           possibleAnimeEpisodes = possibleAnimeEpisodes?.map((episode: IAnimeEpisode) => {
-            if (!episode.image)
+            if (!episode.image) {
               episode.image =
                 Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium;
+              episode.imageHash = getHashFromImage(
+                Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium
+              );
+            }
 
             return episode;
           });
@@ -1438,8 +1545,12 @@ class Anilist extends AnimeParser {
         possibleAnimeEpisodes = await this.fetchDefaultEpisodeList(Media, dub, id);
 
         possibleAnimeEpisodes = possibleAnimeEpisodes?.map((episode: IAnimeEpisode) => {
-          if (!episode.image)
+          if (!episode.image) {
             episode.image = Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium;
+            episode.imageHash = getHashFromImage(
+              Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium
+            );
+          }
 
           return episode;
         });
@@ -1467,8 +1578,12 @@ class Anilist extends AnimeParser {
     }
 
     possibleAnimeEpisodes = possibleAnimeEpisodes?.map((episode: IAnimeEpisode) => {
-      if (!episode.image)
+      if (!episode.image) {
         episode.image = Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium;
+        episode.imageHash = getHashFromImage(
+          Media.coverImage.extraLarge ?? Media.coverImage.large ?? Media.coverImage.medium
+        );
+      }
 
       if (fetchFiller && fillerEpisodes?.length > 0 && fillerEpisodes?.length >= Media.episodes) {
         if (fillerEpisodes[episode.number! - 1])
@@ -1516,6 +1631,7 @@ class Anilist extends AnimeParser {
           id: data.data.Media.trailer?.id,
           site: data.data.Media.trailer?.site,
           thumbnail: data.data.Media.trailer?.thumbnail,
+          thumbnailHash: getHashFromImage(data.data.Media.trailer?.thumbnail),
         };
       }
 
@@ -1529,7 +1645,13 @@ class Anilist extends AnimeParser {
         data.data.Media.coverImage.large ??
         data.data.Media.coverImage.medium;
 
+      animeInfo.imageHash = getHashFromImage(
+        data.data.Media.coverImage.extraLarge ??
+          data.data.Media.coverImage.large ??
+          data.data.Media.coverImage.medium
+      );
       animeInfo.cover = data.data.Media.bannerImage ?? animeInfo.image;
+      animeInfo.coverHash = getHashFromImage(data.data.Media.bannerImage ?? animeInfo.image);
       animeInfo.description = data.data.Media.description;
       switch (data.data.Media.status) {
         case 'RELEASING':
@@ -1604,7 +1726,17 @@ class Anilist extends AnimeParser {
           item.node.mediaRecommendation.coverImage.extraLarge ??
           item.node.mediaRecommendation.coverImage.large ??
           item.node.mediaRecommendation.coverImage.medium,
+        imageHash: getHashFromImage(
+          item.node.mediaRecommendation.coverImage.extraLarge ??
+            item.node.mediaRecommendation.coverImage.large ??
+            item.node.mediaRecommendation.coverImage.medium
+        ),
         cover:
+          item.node.mediaRecommendation.bannerImage ??
+          item.node.mediaRecommendation.coverImage.extraLarge ??
+          item.node.mediaRecommendation.coverImage.large ??
+          item.node.mediaRecommendation.coverImage.medium,
+        coverHash:
           item.node.mediaRecommendation.bannerImage ??
           item.node.mediaRecommendation.coverImage.extraLarge ??
           item.node.mediaRecommendation.coverImage.large ??
@@ -1624,6 +1756,7 @@ class Anilist extends AnimeParser {
           userPreferred: item.node.name.userPreferred,
         },
         image: item.node.image.large ?? item.node.image.medium,
+        imageHash: getHashFromImage(item.node.image.large ?? item.node.image.medium),
         voiceActors: item.voiceActors.map((voiceActor: any) => ({
           id: voiceActor.id,
           language: voiceActor.languageV2,
@@ -1635,6 +1768,7 @@ class Anilist extends AnimeParser {
             userPreferred: voiceActor.name.userPreferred,
           },
           image: voiceActor.image.large ?? voiceActor.image.medium,
+          imageHash: getHashFromImage(voiceActor.image.large ?? voiceActor.image.medium),
         })),
       }));
       animeInfo.color = data.data.Media.coverImage?.color;
@@ -1663,11 +1797,20 @@ class Anilist extends AnimeParser {
         episodes: item.node.episodes,
 
         image: item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium,
+        imageHash: getHashFromImage(
+          item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium
+        ),
         cover:
           item.node.bannerImage ??
           item.node.coverImage.extraLarge ??
           item.node.coverImage.large ??
           item.node.coverImage.medium,
+        coverHash: getHashFromImage(
+          item.node.bannerImage ??
+            item.node.coverImage.extraLarge ??
+            item.node.coverImage.large ??
+            item.node.coverImage.medium
+        ),
         rating: item.node.meanScore,
         type: item.node.format,
       }));
@@ -1679,12 +1822,52 @@ class Anilist extends AnimeParser {
   };
 
   /**
-   * TODO: finish this (got lazy)
+   * To get Staff details by anilistId
    * @param id staff id from anilist
    *
    */
   fetchStaffById = async (id: number) => {
-    throw new Error('Not implemented yet');
+    const staffInfo: IStaff = {
+      id: String(id),
+      name: { first: '', last: '', native: '', full: '' },
+    };
+
+    const options = {
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      query: anilistStaffInfoQuery(id),
+    };
+
+    try {
+      const { data } = await this.client.post(this.anilistGraphqlUrl, options).catch(err => {
+        throw new Error((err as Error).message);
+      });
+      const staff = data.data.Staff;
+
+      staffInfo.id = staff?.id;
+      staffInfo.name = staff?.name;
+      staffInfo.image = staff?.image;
+      staffInfo.description = staff?.description;
+      staffInfo.siteUrl = staff?.siteUrl;
+
+      staffInfo.roles = staff?.staffMedia.edges.map((media: any) => ({
+        id: media?.node?.id,
+        title: media?.node?.title,
+        type: media?.node?.type,
+        image: {
+          extraLarge: media?.node?.coverImage?.extraLarge,
+          large: media?.node?.coverImage?.large,
+          medium: media?.node?.coverImage?.medium,
+        },
+        color: media?.node?.coverImage?.color,
+      }));
+
+      return staffInfo;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
   };
 
   /**
@@ -1761,6 +1944,7 @@ class Anilist extends AnimeParser {
           alternativeSpoiler: Character.name?.alternativeSpoiler,
         },
         image: Character.image?.large ?? Character.image?.medium,
+        imageHash: getHashFromImage(Character.image?.large ?? Character.image?.medium),
         description: Character.description,
         gender: Character.gender,
         dateOfBirth: {
@@ -1809,6 +1993,9 @@ class Anilist extends AnimeParser {
               : MediaStatus.UNKNOWN,
           episodes: v.node.episodes,
           image: v.node.coverImage?.extraLarge ?? v.node.coverImage?.large ?? v.node.coverImage?.medium,
+          imageHash: getHashFromImage(
+            v.node.coverImage?.extraLarge ?? v.node.coverImage?.large ?? v.node.coverImage?.medium
+          ),
           rating: v.node.averageScore,
           releaseDate: v.node.startDate?.year,
           type: v.node.format,
@@ -1890,7 +2077,11 @@ class Anilist extends AnimeParser {
                   ? MediaStatus.HIATUS
                   : MediaStatus.UNKNOWN,
               image: item.coverImage?.extraLarge ?? item.coverImage?.large ?? item.coverImage?.medium,
+              imageHash: getHashFromImage(
+                item.coverImage?.extraLarge ?? item.coverImage?.large ?? item.coverImage?.medium
+              ),
               cover: item.bannerImage,
+              coverHash: getHashFromImage(item.bannerImage),
               popularity: item.popularity,
               description: item.description,
               rating: item.averageScore,
@@ -1951,6 +2142,7 @@ class Anilist extends AnimeParser {
             id: data.data.Media.trailer.id,
             site: data.data.Media.trailer?.site,
             thumbnail: data.data.Media.trailer?.thumbnail,
+            thumbnailHash: getHashFromImage(data.data.Media.trailer?.thumbnail),
           };
         }
         mangaInfo.image =
@@ -1958,9 +2150,15 @@ class Anilist extends AnimeParser {
           data.data.Media.coverImage.large ??
           data.data.Media.coverImage.medium;
 
+        mangaInfo.imageHash = getHashFromImage(
+          data.data.Media.coverImage.extraLarge ??
+            data.data.Media.coverImage.large ??
+            data.data.Media.coverImage.medium
+        );
         mangaInfo.popularity = data.data.Media.popularity;
         mangaInfo.color = data.data.Media.coverImage?.color;
         mangaInfo.cover = data.data.Media.bannerImage ?? mangaInfo.image;
+        mangaInfo.coverHash = getHashFromImage(data.data.Media.bannerImage ?? mangaInfo.image);
         mangaInfo.description = data.data.Media.description;
         switch (data.data.Media.status) {
           case 'RELEASING':
@@ -2022,11 +2220,22 @@ class Anilist extends AnimeParser {
             item.node.mediaRecommendation?.coverImage?.extraLarge ??
             item.node.mediaRecommendation?.coverImage?.large ??
             item.node.mediaRecommendation?.coverImage?.medium,
+          imageHash: getHashFromImage(
+            item.node.mediaRecommendation?.coverImage?.extraLarge ??
+              item.node.mediaRecommendation?.coverImage?.large ??
+              item.node.mediaRecommendation?.coverImage?.medium
+          ),
           cover:
             item.node.mediaRecommendation?.bannerImage ??
             item.node.mediaRecommendation?.coverImage?.extraLarge ??
             item.node.mediaRecommendation?.coverImage?.large ??
             item.node.mediaRecommendation?.coverImage?.medium,
+          coverHash: getHashFromImage(
+            item.node.mediaRecommendation?.bannerImage ??
+              item.node.mediaRecommendation?.coverImage?.extraLarge ??
+              item.node.mediaRecommendation?.coverImage?.large ??
+              item.node.mediaRecommendation?.coverImage?.medium
+          ),
           rating: item.node.mediaRecommendation?.meanScore,
           type: item.node.mediaRecommendation?.format,
         }));
@@ -2042,6 +2251,7 @@ class Anilist extends AnimeParser {
             userPreferred: item.node.name.userPreferred,
           },
           image: item.node.image.large ?? item.node.image.medium,
+          imageHash: getHashFromImage(item.node.image.large ?? item.node.image.medium),
         }));
 
         mangaInfo.relations = data.data.Media.relations.edges.map((item: any) => ({
@@ -2068,6 +2278,9 @@ class Anilist extends AnimeParser {
               : MediaStatus.UNKNOWN,
           chapters: item.node.chapters,
           image: item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium,
+          imageHash: getHashFromImage(
+            item.node.coverImage.extraLarge ?? item.node.coverImage.large ?? item.node.coverImage.medium
+          ),
           color: item.node.coverImage?.color,
           type: item.node.format,
           cover:
@@ -2075,6 +2288,12 @@ class Anilist extends AnimeParser {
             item.node.coverImage.extraLarge ??
             item.node.coverImage.large ??
             item.node.coverImage.medium,
+          coverHash: getHashFromImage(
+            item.node.bannerImage ??
+              item.node.coverImage.extraLarge ??
+              item.node.coverImage.large ??
+              item.node.coverImage.medium
+          ),
           rating: item.node.meanScore,
         }));
 

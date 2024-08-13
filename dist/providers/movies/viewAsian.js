@@ -93,7 +93,9 @@ class ViewAsian extends models_1.MovieParser {
                 const serverUrl = new URL(episodeId);
                 switch (server) {
                     case models_1.StreamingServers.AsianLoad:
-                        return Object.assign({}, (await new extractors_1.AsianLoad(this.proxyConfig, this.adapter).extract(serverUrl)));
+                        return {
+                            ...(await new extractors_1.AsianLoad(this.proxyConfig, this.adapter).extract(serverUrl)),
+                        };
                     case models_1.StreamingServers.MixDrop:
                         return {
                             sources: await new extractors_1.MixDrop(this.proxyConfig, this.adapter).extract(serverUrl),
@@ -124,7 +126,7 @@ class ViewAsian extends models_1.MovieParser {
                     // asianload is the same as the standard server
                     case models_1.StreamingServers.AsianLoad:
                         serverUrl = `https:${$('.anime:contains(Asianload)').attr('data-video')}`;
-                        if (!serverUrl.includes('draplay2'))
+                        if (!serverUrl.includes('pladrac'))
                             throw new Error('Try another server');
                         break;
                     case models_1.StreamingServers.MixDrop:

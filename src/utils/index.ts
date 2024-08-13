@@ -5,6 +5,7 @@ import {
   MixDrop,
   Kwik,
   RapidCloud,
+  MegaCloud,
   StreamTape,
   VizCloud,
   Filemoon,
@@ -41,6 +42,7 @@ import {
   anilistAdvancedQuery,
   anilistSiteStatisticsQuery,
   anilistCharacterQuery,
+  anilistStaffInfoQuery,
 } from './queries';
 import { parsePostInfo } from './getComics';
 
@@ -64,6 +66,7 @@ export {
   kitsuSearchQuery,
   range,
   RapidCloud,
+  MegaCloud,
   StreamTape,
   VizCloud,
   anilistTrendingQuery,
@@ -72,6 +75,7 @@ export {
   anilistGenresQuery,
   anilistAdvancedQuery,
   anilistSiteStatisticsQuery,
+  anilistStaffInfoQuery,
   Filemoon,
   anilistCharacterQuery,
   getDays,

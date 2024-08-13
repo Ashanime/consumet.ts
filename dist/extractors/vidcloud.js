@@ -1,9 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const crypto_js_1 = __importDefault(require("crypto-js"));
+const rabbit_1 = require("./rabbit");
 const models_1 = require("../models");
 const utils_1 = require("../utils");
 class VidCloud extends models_1.VideoExtractor {
@@ -11,9 +8,7 @@ class VidCloud extends models_1.VideoExtractor {
         super(...arguments);
         this.serverName = 'VidCloud';
         this.sources = [];
-        this.host = 'https://dokicloud.one';
-        this.host2 = 'https://rabbitstream.net';
-        this.extract = async (videoUrl, isAlternative = false) => {
+        this.extract = async (videoUrl, _) => {
             var _a;
             const result = {
                 sources: [],
@@ -28,32 +23,8 @@ class VidCloud extends models_1.VideoExtractor {
                         'User-Agent': utils_1.USER_AGENT,
                     },
                 };
-                let res = undefined;
-                let sources = undefined;
-                res = await this.client.get(`${isAlternative ? this.host2 : this.host}/ajax/embed-4/getSources?id=${id}`, options);
-                if (!(0, utils_1.isJson)(res.data.sources)) {
-                    let { data: key } = await this.client.get('https://raw.githubusercontent.com/theonlymo/keys/e4/key');
-                    key = (0, utils_1.substringBefore)((0, utils_1.substringAfter)(key, '"blob-code blob-code-inner js-file-line">'), '</td>');
-                    if (!key) {
-                        key = await (await this.client.get('https://raw.githubusercontent.com/theonlymo/keys/e4/key')).data;
-                    }
-                    const sourcesArray = res.data.sources.split('');
-                    let extractedKey = '';
-                    let currentIndex = 0;
-                    for (const index of key) {
-                        const start = index[0] + currentIndex;
-                        const end = start + index[1];
-                        for (let i = start; i < end; i++) {
-                            extractedKey += res.data.sources[i];
-                            sourcesArray[i] = '';
-                        }
-                        currentIndex += index[1];
-                    }
-                    key = extractedKey;
-                    res.data.sources = sourcesArray.join('');
-                    const decryptedVal = crypto_js_1.default.AES.decrypt(res.data.sources, key).toString(crypto_js_1.default.enc.Utf8);
-                    sources = (0, utils_1.isJson)(decryptedVal) ? JSON.parse(decryptedVal) : res.data.sources;
-                }
+                const res = await (0, rabbit_1.main)(id);
+                const sources = res.sources;
                 this.sources = sources.map((s) => ({
                     url: s.file,
                     isM3U8: s.file.includes('.m3u8'),
@@ -84,7 +55,7 @@ class VidCloud extends models_1.VideoExtractor {
                     isM3U8: sources[0].file.includes('.m3u8'),
                     quality: 'auto',
                 });
-                result.subtitles = res.data.tracks.map((s) => ({
+                result.subtitles = res.tracks.map((s) => ({
                     url: s.file,
                     lang: s.label ? s.label : 'Default (maybe)',
                 }));
